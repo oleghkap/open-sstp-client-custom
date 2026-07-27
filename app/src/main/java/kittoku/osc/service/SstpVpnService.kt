@@ -12,6 +12,7 @@ import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
 import android.service.quicksettings.TileService
+import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -58,6 +59,9 @@ internal const val NOTIFICATION_CERTIFICATE_ID = 4
 
 
 internal class SstpVpnService : VpnService() {
+    private companion object {
+        const val TAG = "OscVpnLifecycle"
+    }
     private lateinit var prefs: SharedPreferences
     private lateinit var listener: SharedPreferences.OnSharedPreferenceChangeListener
     private lateinit var notificationManager: NotificationManagerCompat
@@ -70,6 +74,21 @@ internal class SstpVpnService : VpnService() {
 
     private fun setRootState(state: Boolean) {
         setBooleanPrefValue(state, OscPrefKey.ROOT_STATE, prefs)
+    }
+
+    private fun setShouldRun(state: Boolean) {
+        setBooleanPrefValue(
+            state,
+            OscPrefKey.VPN_SHOULD_RUN,
+            prefs
+        )
+    }
+
+    private fun shouldRun(): Boolean {
+        return getBooleanPrefValue(
+            OscPrefKey.VPN_SHOULD_RUN,
+            prefs
+        )
     }
 
     private fun requestTileListening() {
@@ -99,38 +118,131 @@ internal class SstpVpnService : VpnService() {
         scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        return when (intent?.action) {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int
+    ): Int {
+        val action = intent?.action
+
+        val systemAlwaysOn =
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                    isAlwaysOn
+
+        Log.i(
+            TAG,
+            "onStartCommand: " +
+                    "action=$action, " +
+                    "flags=$flags, " +
+                    "startId=$startId, " +
+                    "alwaysOn=$systemAlwaysOn, " +
+                    "shouldRun=${shouldRun()}"
+        )
+
+        return when (action) {
             ACTION_VPN_CONNECT -> {
-                controller?.kill(false, null)
+                Log.i(TAG, "Manual VPN connect requested")
 
-                beForegrounded()
-                resetReconnectionLife(prefs)
-                if (getBooleanPrefValue(OscPrefKey.LOG_DO_SAVE_LOG, prefs)) {
-                    prepareLogWriter()
+                setShouldRun(true)
+                startConnection()
+            }
+
+            ACTION_VPN_DISCONNECT -> {
+                Log.i(TAG, "Manual VPN disconnect requested")
+
+                setShouldRun(false)
+                stopConnection()
+            }
+
+            VpnService.SERVICE_INTERFACE -> {
+                /*
+                 * Started by Android's system-managed
+                 * Always-on VPN
+                 */
+                Log.i(TAG, "System-managed VPN start requested")
+
+                setShouldRun(true)
+                startConnection()
+            }
+
+            null -> {
+                /*
+                 * START_STICKY may recreate the service
+                 * without the original intent after the
+                 * process has been terminated
+                 */
+                if (systemAlwaysOn || shouldRun()) {
+                    Log.i(TAG, "Restoring VPN after service restart")
+
+                    if (systemAlwaysOn) {
+                        setShouldRun(true)
+                    }
+
+                    startConnection()
+                } else {
+                    Log.i(TAG, "Ignoring restart without active VPN intent")
+
+                    stopSelf(startId)
+                    START_NOT_STICKY
                 }
-
-                logWriter?.write("Establish VPN connection")
-
-                initializeClient()
-
-                setRootState(true)
-
-                START_STICKY
             }
 
             else -> {
-                // ensure that reconnection has been completely canceled or done
-                runBlocking { jobReconnect?.cancelAndJoin() }
+                /*
+                 * Unknown actions must not accidentally
+                 * be treated as explicit disconnect requests
+                 */
+                Log.w(TAG, "Ignoring unknown service action: $action")
 
-                controller?.disconnect()
-                controller = null
-
-                close()
+                if (controller == null) {
+                    stopSelf(startId)
+                }
 
                 START_NOT_STICKY
             }
         }
+    }
+
+    private fun startConnection(): Int {
+        controller?.kill(false, null)
+
+        beForegrounded()
+        resetReconnectionLife(prefs)
+
+        if (
+            getBooleanPrefValue(
+                OscPrefKey.LOG_DO_SAVE_LOG,
+                prefs
+            )
+        ) {
+            prepareLogWriter()
+        }
+
+        logWriter?.write("Establish VPN connection")
+
+        initializeClient()
+        setRootState(true)
+
+        return START_STICKY
+    }
+
+    private fun stopConnection(): Int {
+        /*
+         * Ensure that any pending reconnect job
+         * is fully cancelled before disconnecting
+         */
+        runBlocking {
+            jobReconnect?.cancelAndJoin()
+        }
+
+        jobReconnect = null
+
+        controller?.disconnect()
+        controller = null
+
+        close()
+
+        return START_NOT_STICKY
     }
 
     private fun initializeClient() {
@@ -256,6 +368,15 @@ internal class SstpVpnService : VpnService() {
     internal fun close() {
         stopForeground(true)
         stopSelf()
+    }
+
+    override fun onRevoke() {
+        Log.i(TAG, "VPN permission or system ownership revoked")
+
+        setShouldRun(false)
+        stopConnection()
+
+        super.onRevoke()
     }
 
     override fun onDestroy() {
