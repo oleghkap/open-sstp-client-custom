@@ -7,6 +7,7 @@ import kittoku.osc.DEFAULT_MTU
 
 internal enum class OscPrefKey {
     ROOT_STATE,
+    VPN_SHOULD_RUN,
     HOME_HOSTNAME,
     HOME_USERNAME,
     HOME_PASSWORD,
@@ -56,6 +57,7 @@ internal enum class OscPrefKey {
 
 internal val DEFAULT_BOOLEAN_MAP = mapOf(
     OscPrefKey.ROOT_STATE to false,
+    OscPrefKey.VPN_SHOULD_RUN to false,
     OscPrefKey.HOME_CONNECTOR to false,
     OscPrefKey.SSL_DO_VERIFY to true,
     OscPrefKey.SSL_DO_SPECIFY_CERT to false,
