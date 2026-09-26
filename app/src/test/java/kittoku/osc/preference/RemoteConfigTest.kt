@@ -36,21 +36,56 @@ class RemoteConfigTest {
     @Test
     fun blockedAndUnknownKeysAreDropped() {
         val profile = Profile(
-            booleanSetting = mutableMapOf(OscPrefKey.ROOT_STATE.name to true),
+            booleanSetting = mutableMapOf(
+                OscPrefKey.ROOT_STATE.name to true,
+                OscPrefKey.REMOTE_CONFIG_ENABLED.name to true,
+            ),
             intSetting = mutableMapOf(
                 OscPrefKey.RECONNECTION_LIFE.name to 2,
                 "NOT_A_KEY" to 1,
             ),
             stringSetting = mutableMapOf(
                 OscPrefKey.HOME_USERNAME.name to "alice",
-                OscPrefKey.REMOTE_CONFIG_URL.name to "https://evil.example/config.json",
+                OscPrefKey.REMOTE_CONFIG_URL.name to " https://vpn.example.com/config.json ",
                 OscPrefKey.HOME_STATUS.name to "connected",
+                OscPrefKey.REMOTE_CONFIG_STATUS.name to "forged",
             ),
             uriSetting = mutableMapOf(OscPrefKey.SSL_CERT_DIR.name to "content://certs"),
         )
 
         assertEquals(
-            listOf(RemoteSettingWrite.Str(OscPrefKey.HOME_USERNAME, "alice")),
+            listOf(
+                RemoteSettingWrite.Bool(OscPrefKey.REMOTE_CONFIG_ENABLED, true),
+                RemoteSettingWrite.Str(OscPrefKey.HOME_USERNAME, "alice"),
+                RemoteSettingWrite.Str(OscPrefKey.REMOTE_CONFIG_URL, "https://vpn.example.com/config.json"),
+            ),
+            remoteSettingWrites(profile),
+        )
+    }
+
+    @Test
+    fun remoteConfigUrlMustStayHttps() {
+        val profile = Profile(
+            stringSetting = mutableMapOf(
+                OscPrefKey.REMOTE_CONFIG_URL.name to "http://vpn.example.com/config.json",
+                OscPrefKey.HOME_HOSTNAME.name to "vpn.example.com",
+            ),
+        )
+
+        assertEquals(
+            listOf(RemoteSettingWrite.Str(OscPrefKey.HOME_HOSTNAME, "vpn.example.com")),
+            remoteSettingWrites(profile),
+        )
+    }
+
+    @Test
+    fun blankRemoteConfigUrlClearsTheAddress() {
+        val profile = Profile(
+            stringSetting = mutableMapOf(OscPrefKey.REMOTE_CONFIG_URL.name to "  "),
+        )
+
+        assertEquals(
+            listOf(RemoteSettingWrite.Str(OscPrefKey.REMOTE_CONFIG_URL, "")),
             remoteSettingWrites(profile),
         )
     }

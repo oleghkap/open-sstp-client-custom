@@ -17,23 +17,23 @@ import kittoku.osc.preference.accessor.setURIPrefValue
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import java.net.URI
+import java.net.URISyntaxException
 
 
 private val EXCLUDED_BOOLEAN_PREFERENCES = arrayOf(
     OscPrefKey.ROOT_STATE,
     OscPrefKey.HOME_CONNECTOR,
     OscPrefKey.HOME_STATUS,
-    OscPrefKey.REMOTE_CONFIG_ENABLED,
 )
 
 private val EXCLUDED_STRING_PREFERENCES = arrayOf(
     OscPrefKey.HOME_STATUS,
-    OscPrefKey.REMOTE_CONFIG_URL,
     OscPrefKey.REMOTE_CONFIG_STATUS,
 )
 
-// Session state, device-local paths, and the remote-config settings themselves.
-// A downloaded file must not flip the connection or replace the URL it came from.
+// Session state and device-local paths. The remote URL and its switch are ordinary
+// profile fields: a downloaded file may replace them, and the next fetch uses the new URL.
 private val REMOTE_CONFIG_BLOCKED_KEYS = setOf(
     OscPrefKey.ROOT_STATE,
     OscPrefKey.HOME_CONNECTOR,
@@ -41,8 +41,6 @@ private val REMOTE_CONFIG_BLOCKED_KEYS = setOf(
     OscPrefKey.RECONNECTION_LIFE,
     OscPrefKey.SSL_CERT_DIR,
     OscPrefKey.LOG_DIR,
-    OscPrefKey.REMOTE_CONFIG_ENABLED,
-    OscPrefKey.REMOTE_CONFIG_URL,
     OscPrefKey.REMOTE_CONFIG_STATUS,
 )
 
@@ -150,6 +148,12 @@ internal fun remoteSettingWrites(profile: Profile): List<RemoteSettingWrite> {
     profile.stringSetting.forEach { (name, value) ->
         val key = keys[name] ?: return@forEach
         if (key !in DEFAULT_STRING_MAP || key in REMOTE_CONFIG_BLOCKED_KEYS) return@forEach
+        if (key == OscPrefKey.REMOTE_CONFIG_URL) {
+            val url = value.trim()
+            if (!isProfileRemoteConfigUrl(url)) return@forEach
+            writes.add(RemoteSettingWrite.Str(key, url))
+            return@forEach
+        }
         writes.add(RemoteSettingWrite.Str(key, value))
     }
 
@@ -160,6 +164,17 @@ internal fun remoteSettingWrites(profile: Profile): List<RemoteSettingWrite> {
     }
 
     return writes
+}
+
+// Blank clears the URL. Any other value must already be an HTTPS address.
+private fun isProfileRemoteConfigUrl(value: String): Boolean {
+    if (value.isBlank()) return true
+    return try {
+        val uri = URI(value)
+        uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank()
+    } catch (_: URISyntaxException) {
+        false
+    }
 }
 
 internal fun applyPresentSettings(profile: Profile, prefs: SharedPreferences): Boolean {
