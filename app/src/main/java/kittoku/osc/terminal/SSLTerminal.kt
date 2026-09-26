@@ -374,8 +374,8 @@ internal class SSLTerminal(private val bridge: SharedBridge) {
             it.priority = NotificationCompat.PRIORITY_DEFAULT
             it.setSmallIcon(R.drawable.ic_baseline_vpn_lock_24)
             it.setAutoCancel(true)
-            it.setContentTitle("You can download the untrusted server certificate")
-            it.setContentText("WARNING: untrusted certificates could have your device vulnerable")
+            it.setContentTitle(bridge.service.getString(R.string.notification_cert_title))
+            it.setContentText(bridge.service.getString(R.string.notification_cert_text))
             it.setStyle(NotificationCompat.BigTextStyle())
             it.setContentIntent(pendingIntent)
         }.build().also {

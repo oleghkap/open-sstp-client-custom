@@ -50,7 +50,7 @@ class HomeFragment : PreferenceFragmentCompat() {
         findPreference<HomeConnectorPreference>(OscPrefKey.HOME_CONNECTOR.name)!!.also {
             it.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _, newState ->
                 if (newState == true) {
-                    checkPreferences(preferenceManager.sharedPreferences!!)?.also { message ->
+                    checkPreferences(preferenceManager.sharedPreferences!!, requireContext())?.also { message ->
                         toastInvalidSetting(message, requireContext())
                         return@OnPreferenceChangeListener false
                     }

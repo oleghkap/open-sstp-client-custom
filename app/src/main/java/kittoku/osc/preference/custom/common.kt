@@ -3,6 +3,7 @@ package kittoku.osc.preference.custom
 import android.content.Context
 import android.text.InputType
 import android.util.AttributeSet
+import androidx.annotation.StringRes
 import androidx.preference.EditTextPreference
 import androidx.preference.Preference
 import kittoku.osc.preference.DEFAULT_INT_MAP
@@ -15,12 +16,15 @@ import kittoku.osc.preference.accessor.getStringPrefValue
 internal interface OscPreference {
     val oscPrefKey: OscPrefKey
     val parentKey: OscPrefKey?
-    val preferenceTitle: String
+    @get:StringRes
+    val preferenceTitle: Int
     fun updateView()
 }
 
 internal fun <T> T.initialize() where T : Preference, T : OscPreference {
-    title = preferenceTitle
+    if (preferenceTitle != 0) {
+        title = context.getString(preferenceTitle)
+    }
     isSingleLineTitle = false
 
     parentKey?.also { dependency = it.name }

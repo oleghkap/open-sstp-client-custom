@@ -1,3 +1,171 @@
-<resources>
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="en">
     <string name="app_name">Open SSTP Client</string>
+
+    <string name="tab_home">HOME</string>
+    <string name="tab_setting">SETTING</string>
+
+    <string name="menu_load_profile">Load Profile</string>
+    <string name="menu_save_profile">Save Profile</string>
+    <string name="menu_import_profile">Import Profile</string>
+    <string name="menu_export_profile">Export Profile</string>
+    <string name="menu_reload_defaults">Reload Defaults</string>
+    <string name="menu_select_all">Select All</string>
+    <string name="menu_unselect_all">Unselect All</string>
+
+    <string name="title_profiles">Profiles</string>
+    <string name="title_apps">Allowed/Disallowed Apps</string>
+
+    <string name="category_ssl">SSL Layer</string>
+    <string name="category_proxy">HTTP Proxy</string>
+    <string name="category_ppp">PPP Layer</string>
+    <string name="category_ppp_auth">PPP Authentication Protocol</string>
+    <string name="category_ppp_network">PPP Network Protocol</string>
+    <string name="category_dns">DNS Server</string>
+    <string name="category_routing">Routing</string>
+    <string name="category_reconnection">Reconnection</string>
+    <string name="category_log">Log</string>
+
+    <string name="pref_hostname">Hostname</string>
+    <string name="pref_username">Username</string>
+    <string name="pref_password">Password</string>
+    <string name="pref_port">Port Number</string>
+    <string name="pref_ssl_version">SSL Version</string>
+    <string name="pref_verify_hostname">Verify Hostname</string>
+    <string name="pref_specify_certs">Specify Trusted Certificates</string>
+    <string name="pref_select_certs">Select Trusted Certificates</string>
+    <string name="pref_enable_selected_suites">Enable Only Selected Cipher Suites</string>
+    <string name="pref_cipher_suites">Select Cipher Suites</string>
+    <string name="pref_custom_sni">Use Custom SNI</string>
+    <string name="pref_custom_sni_hostname">Custom SNI Hostname</string>
+    <string name="pref_use_proxy">Use HTTP Proxy</string>
+    <string name="pref_proxy_hostname">Proxy Server Hostname</string>
+    <string name="pref_proxy_port">Proxy Server Port Number</string>
+    <string name="pref_proxy_username">Proxy Username (optional)</string>
+    <string name="pref_proxy_password">Proxy Password (optional)</string>
+    <string name="pref_mru">MRU</string>
+    <string name="pref_mtu">MTU</string>
+    <string name="pref_auth_protocols">Select Authentication Protocols</string>
+    <string name="pref_auth_timeout">Timeout Period (second)</string>
+    <string name="pref_enable_ipv4">Enable IPv4</string>
+    <string name="pref_request_static_ipv4">Request Static IPv4 Address</string>
+    <string name="pref_static_ipv4_address">Static IPv4 Address</string>
+    <string name="pref_enable_ipv6">Enable IPv6</string>
+    <string name="pref_request_dns">Request DNS Server Address</string>
+    <string name="pref_custom_dns">Use Custom DNS Server</string>
+    <string name="pref_custom_dns_address">Custom DNS Server Address</string>
+    <string name="pref_default_route">Add Default Route</string>
+    <string name="pref_route_private">Route Private/Unique-Local Addresses</string>
+    <string name="pref_add_custom_routes">Add Custom Routes</string>
+    <string name="pref_edit_custom_routes">Edit Custom Routes</string>
+    <string name="pref_app_based_rule">Enable App-Based Rule</string>
+    <string name="pref_select_apps">Select Allowed/Disallowed Apps</string>
+    <string name="pref_show_background_apps">Show Background Apps</string>
+    <string name="pref_list_type">List Type</string>
+    <string name="pref_reconnection">Enable Reconnection</string>
+    <string name="pref_retry_count">Retry Count</string>
+    <string name="pref_retry_interval">Retry Interval (second)</string>
+    <string name="pref_save_log">Save Log</string>
+    <string name="pref_log_dir">Select Log Directory</string>
+    <string name="pref_status">Current Status</string>
+    <string name="pref_project_page">Move to this app\'s project page</string>
+
+    <string name="summary_no_value">[No Value Entered]</string>
+    <string name="summary_password_entered">[Password Entered]</string>
+    <string name="summary_routes_entered">[Custom Routes Entered]</string>
+    <string name="summary_no_directory">[No Directory Selected]</string>
+    <string name="summary_no_connection">[No Connection Established]</string>
+    <string name="summary_no_suite">[No Suite Selected]</string>
+    <string name="summary_no_protocol">[No Protocol Selected]</string>
+    <string name="summary_no_app_allowed">[No App Allowed]</string>
+    <string name="summary_no_app_disallowed">[No App Disallowed]</string>
+
+    <string name="dialog_dns_notice">NOTICE: packets associated with this address is routed to the VPN tunnel</string>
+    <string name="ssl_version_default">DEFAULT</string>
+    <string name="list_type_allowed">Allowed Apps</string>
+    <string name="list_type_disallowed">Disallowed Apps</string>
+
+    <string name="dialog_save_profile">Enter the profile\'s name.\nIf blank, the hostname will be used.\nIf duplicated, the profile will be overwritten.</string>
+    <string name="dialog_export_warning">Password will be also exported as plain text. If you don\'t want that, blank Password before exporting.</string>
+    <string name="dialog_reload_confirm">Are you sure to reload the default settings?</string>
+
+    <string name="action_save">SAVE</string>
+    <string name="action_cancel">CANCEL</string>
+    <string name="action_proceed">PROCEED</string>
+    <string name="action_yes">YES</string>
+    <string name="action_no">NO</string>
+    <string name="action_load">LOAD</string>
+    <string name="action_delete">DELETE</string>
+    <string name="action_disconnect">DISCONNECT</string>
+
+    <string name="toast_import_failed">IMPORT FAILED</string>
+    <string name="toast_profile_imported">PROFILE IMPORTED</string>
+    <string name="toast_profile_exported">PROFILE EXPORTED</string>
+    <string name="toast_profile_saved">PROFILE SAVED</string>
+    <string name="toast_defaults_reloaded">DEFAULTS RELOADED</string>
+    <string name="toast_invalid_profile">INVALID PROFILE</string>
+    <string name="toast_profile_loaded">PROFILE LOADED</string>
+    <string name="toast_profile_deleted">PROFILE DELETED</string>
+    <string name="toast_invalid_setting">INVALID SETTING: %1$s</string>
+
+    <string name="error_hostname_missing">Hostname is missing</string>
+    <string name="error_port_range">The given port is out of 0-65535</string>
+    <string name="error_certs_need_ssl_version">Specifying trusted certificates needs SSL version to be specified</string>
+    <string name="error_certs_dir_missing">No certificates directory was selected</string>
+    <string name="error_no_cipher_suite">No cipher suite was selected</string>
+    <string name="error_custom_sni_api">Custom SNI needs 24 or higher API level</string>
+    <string name="error_custom_sni_blank">Custom SNI Hostname must not be blank</string>
+    <string name="error_proxy_hostname_missing">Proxy server hostname is missing</string>
+    <string name="error_proxy_port_range">The given proxy server port is out of 0-65535</string>
+    <string name="error_mru_range">The given MRU is out of %1$d-%2$d</string>
+    <string name="error_mtu_range">The given MTU is out of %1$d-%2$d</string>
+    <string name="error_no_network_protocol">No network protocol was enabled</string>
+    <string name="error_static_ipv4_missing">No static IPv4 address was given</string>
+    <string name="error_no_auth_protocol">No authentication protocol was selected</string>
+    <string name="error_auth_timeout">PPP authentication timeout period must be &gt;=1 second</string>
+    <string name="error_custom_dns_missing">No custom DNS server address was given</string>
+    <string name="error_retry_count">Retry Count must be a positive integer</string>
+    <string name="error_log_dir_missing">No log directory was selected</string>
+
+    <string name="status_ssl">[SSL/TLS Parameters]</string>
+    <string name="status_protocol">PROTOCOL: %1$s</string>
+    <string name="status_suite">SUITE: %1$s</string>
+    <string name="status_assigned_ip">[Assigned IP Address]</string>
+    <string name="status_dns">[DNS Server Address]</string>
+    <string name="status_not_specified">Not specified</string>
+    <string name="status_routing">[Routing]</string>
+
+    <string name="profile_summary">[Hostname]\n%1$s\n\n[Username]\n%2$s\n\n[Port Number]\n%3$s</string>
+
+    <string name="channel_error">ERROR</string>
+    <string name="channel_reconnect">RECONNECT</string>
+    <string name="channel_disconnect">DISCONNECT</string>
+    <string name="channel_certificate">CERTIFICATE</string>
+    <string name="notification_reconnect">Reconnection will be tried (LIFE = %1$d)</string>
+    <string name="notification_cert_title">You can download the untrusted server certificate</string>
+    <string name="notification_cert_text">WARNING: untrusted certificates could have your device vulnerable</string>
+
+    <string name="log_establish">Establish VPN connection</string>
+    <string name="log_terminate">Terminate VPN connection</string>
+    <string name="notify_log_null_preference">LOG: ERR_NULL_PREFERENCE</string>
+    <string name="notify_log_null_directory">LOG: ERR_NULL_DIRECTORY</string>
+    <string name="notify_log_null_file">LOG: ERR_NULL_FILE</string>
+    <string name="notify_log_null_stream">LOG: ERR_NULL_STREAM</string>
+
+    <plurals name="summary_suites_selected">
+        <item quantity="one">%d Suite Selected</item>
+        <item quantity="other">%d Suites Selected</item>
+    </plurals>
+    <plurals name="summary_protocols_selected">
+        <item quantity="one">%d Protocol Selected</item>
+        <item quantity="other">%d Protocols Selected</item>
+    </plurals>
+    <plurals name="summary_apps_allowed">
+        <item quantity="one">[%d App Allowed]</item>
+        <item quantity="other">[%d Apps Allowed]</item>
+    </plurals>
+    <plurals name="summary_apps_disallowed">
+        <item quantity="one">[%d App Disallowed]</item>
+        <item quantity="other">[%d Apps Disallowed]</item>
+    </plurals>
 </resources>

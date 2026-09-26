@@ -26,7 +26,6 @@ import kittoku.osc.BuildConfig
 import kittoku.osc.R
 import kittoku.osc.databinding.ActivityMainBinding
 import kittoku.osc.extension.firstEditText
-import kittoku.osc.extension.sum
 import kittoku.osc.fragment.HomeFragment
 import kittoku.osc.fragment.SettingFragment
 import kittoku.osc.preference.OscPrefKey
@@ -65,11 +64,11 @@ class MainActivity : AppCompatActivity() {
             }
 
             if (profile == null) {
-                Toast.makeText(this, "IMPORT FAILED", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.toast_import_failed, Toast.LENGTH_SHORT).show()
             } else {
                 importProfile(profile,prefs)
                 updatePreferenceView()
-                Toast.makeText(this, "PROFILE IMPORTED", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.toast_profile_imported, Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -82,7 +81,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            Toast.makeText(this, "PROFILE EXPORTED", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_profile_exported, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -134,8 +133,8 @@ class MainActivity : AppCompatActivity() {
 
         TabLayoutMediator(binding.tabBar, binding.pager) { tab, position ->
             tab.text = when (position) {
-                0 -> "HOME"
-                1 -> "SETTING"
+                0 -> getString(R.string.tab_home)
+                1 -> getString(R.string.tab_setting)
                 else -> throw NotImplementedError(position.toString())
             }
         }.attach()
@@ -187,13 +186,9 @@ class MainActivity : AppCompatActivity() {
 
         AlertDialog.Builder(this).also {
             it.setView(inflated)
-            it.setMessage(sum(
-                "Enter the profile's name.\n",
-                "If blank, the hostname will be used.\n",
-                "If duplicated, the profile will be overwritten."
-            ))
+            it.setMessage(getString(R.string.dialog_save_profile))
 
-            it.setPositiveButton("SAVE") { _, _ ->
+            it.setPositiveButton(R.string.action_save) { _, _ ->
                 prefs.edit().also { editor ->
                     editor.putString(
                         PROFILE_KEY_HEADER + editText.text.ifEmpty { hostname },
@@ -202,10 +197,10 @@ class MainActivity : AppCompatActivity() {
                     editor.apply()
                 }
 
-                Toast.makeText(this, "PROFILE SAVED", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.toast_profile_saved, Toast.LENGTH_SHORT).show()
             }
 
-            it.setNegativeButton("CANCEL") { _, _ -> }
+            it.setNegativeButton(R.string.action_cancel) { _, _ -> }
 
             it.show()
         }
@@ -215,15 +210,13 @@ class MainActivity : AppCompatActivity() {
         val filename = getStringPrefValue(OscPrefKey.HOME_HOSTNAME, prefs) + ".json"
 
         AlertDialog.Builder(this).also {
-            it.setMessage(
-                "Password will be also exported as plain text. If you don't want that, blank Password before exporting."
-            )
+            it.setMessage(getString(R.string.dialog_export_warning))
 
-            it.setPositiveButton("PROCEED") { _, _ ->
+            it.setPositiveButton(R.string.action_proceed) { _, _ ->
                 exportLauncher.launch(filename)
             }
 
-            it.setNegativeButton("CANCEL") { _, _ -> }
+            it.setNegativeButton(R.string.action_cancel) { _, _ -> }
 
             it.show()
         }
@@ -231,17 +224,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun showReloadDialog() {
         AlertDialog.Builder(this).also {
-            it.setMessage("Are you sure to reload the default settings?")
+            it.setMessage(getString(R.string.dialog_reload_confirm))
 
-            it.setPositiveButton("YES") { _, _ ->
+            it.setPositiveButton(R.string.action_yes) { _, _ ->
                 importProfile(null, prefs)
 
                 updatePreferenceView()
 
-                Toast.makeText(this, "DEFAULTS RELOADED", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.toast_defaults_reloaded, Toast.LENGTH_SHORT).show()
             }
 
-            it.setNegativeButton("NO") { _, _ -> }
+            it.setNegativeButton(R.string.action_no) { _, _ -> }
 
             it.show()
         }

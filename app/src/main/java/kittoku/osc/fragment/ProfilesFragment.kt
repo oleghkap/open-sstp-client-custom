@@ -48,26 +48,26 @@ internal class ProfilesFragment : PreferenceFragmentCompat() {
     private fun showLoadDialog(key: String) {
         val profile = deserializeProfile(prefs.getString(key, null)!!)
         if (profile == null) {
-            Toast.makeText(requireContext(), "INVALID PROFILE", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), R.string.toast_invalid_profile, Toast.LENGTH_SHORT).show()
             return
         }
 
         AlertDialog.Builder(requireContext()).also {
             it.setTitle(key.substringAfter(PROFILE_KEY_HEADER))
-            it.setMessage(summarizeProfile(profile))
+            it.setMessage(summarizeProfile(profile, requireContext()))
 
-            it.setPositiveButton("LOAD") { _, _ ->
+            it.setPositiveButton(R.string.action_load) { _, _ ->
                 importProfile(profile, prefs)
 
-                Toast.makeText(requireContext(), "PROFILE LOADED", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), R.string.toast_profile_loaded, Toast.LENGTH_SHORT).show()
 
                 requireActivity().setResult(Activity.RESULT_OK)
                 requireActivity().finish()
             }
 
-            it.setNegativeButton("CANCEL") { _, _ -> }
+            it.setNegativeButton(R.string.action_cancel) { _, _ -> }
 
-            it.setNeutralButton("DELETE") { _, _ ->
+            it.setNeutralButton(R.string.action_delete) { _, _ ->
                 prefs.edit().also { editor ->
                     editor.remove(key)
                     editor.apply()
@@ -75,7 +75,7 @@ internal class ProfilesFragment : PreferenceFragmentCompat() {
 
                 preferenceScreen.removePreference(findPreference("_$key")!!)
 
-                Toast.makeText(requireContext(), "PROFILE DELETED", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), R.string.toast_profile_deleted, Toast.LENGTH_SHORT).show()
             }
 
             it.show()

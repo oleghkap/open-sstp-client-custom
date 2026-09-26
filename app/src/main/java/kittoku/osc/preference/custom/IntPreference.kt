@@ -3,6 +3,7 @@ package kittoku.osc.preference.custom
 import android.content.Context
 import android.text.InputType
 import android.util.AttributeSet
+import kittoku.osc.R
 import kittoku.osc.preference.OscPrefKey
 
 
@@ -13,41 +14,41 @@ internal abstract class IntPreference(context: Context, attrs: AttributeSet) : O
 internal class SSLPortPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.SSL_PORT
     override val parentKey: OscPrefKey? = null
-    override val preferenceTitle = "Port Number"
+    override val preferenceTitle = R.string.pref_port
 }
 
 internal class ProxyPortPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.PROXY_PORT
     override val parentKey = OscPrefKey.PROXY_DO_USE_PROXY
-    override val preferenceTitle = "Proxy Server Port Number"
+    override val preferenceTitle = R.string.pref_proxy_port
 }
 
 internal class PPPMruPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.PPP_MRU
     override val parentKey: OscPrefKey? = null
-    override val preferenceTitle = "MRU"
+    override val preferenceTitle = R.string.pref_mru
 }
 
 internal class PPPMtuPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.PPP_MTU
     override val parentKey: OscPrefKey? = null
-    override val preferenceTitle = "MTU"
+    override val preferenceTitle = R.string.pref_mtu
 }
 
 internal class PPPAuthTimeoutPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.PPP_AUTH_TIMEOUT
     override val parentKey: OscPrefKey? = null
-    override val preferenceTitle = "Timeout Period (second)"
+    override val preferenceTitle = R.string.pref_auth_timeout
 }
 
 internal class ReconnectionCountPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.RECONNECTION_COUNT
     override val parentKey = OscPrefKey.RECONNECTION_ENABLED
-    override val preferenceTitle = "Retry Count"
+    override val preferenceTitle = R.string.pref_retry_count
 }
 
 internal class ReconnectionIntervalPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.RECONNECTION_INTERVAL
     override val parentKey = OscPrefKey.RECONNECTION_ENABLED
-    override val preferenceTitle = "Retry Interval (second)"
+    override val preferenceTitle = R.string.pref_retry_interval
 }
