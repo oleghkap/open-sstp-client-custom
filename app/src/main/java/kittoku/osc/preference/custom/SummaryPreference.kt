@@ -6,6 +6,7 @@ import android.util.AttributeSet
 import android.widget.TextView
 import androidx.preference.Preference
 import androidx.preference.PreferenceViewHolder
+import kittoku.osc.R
 import kittoku.osc.preference.LIST_TYPE_ALLOWED
 import kittoku.osc.preference.OscPrefKey
 import kittoku.osc.preference.accessor.getSetPrefValue
@@ -42,26 +43,34 @@ internal abstract class SummaryPreference(context: Context, attrs: AttributeSet)
 internal class HomeStatusPreference(context: Context, attrs: AttributeSet) : SummaryPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.HOME_STATUS
     override val parentKey: OscPrefKey? = null
-    override val preferenceTitle = "Current Status"
+    override val preferenceTitle = R.string.pref_status
 
     override fun updateView() {
-        summary = getStringPrefValue(oscPrefKey, sharedPreferences!!).ifEmpty { "[No Connection Established]" }
+        summary = getStringPrefValue(oscPrefKey, sharedPreferences!!).ifEmpty {
+            context.getString(R.string.summary_no_connection)
+        }
     }
 }
 
 internal class RouteSelectedAppsPreference(context: Context, attrs: AttributeSet) : SummaryPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.ROUTE_SELECTED_APPS
     override val parentKey = OscPrefKey.ROUTE_DO_ENABLE_APP_BASED_RULE
-    override val preferenceTitle = "Select Allowed/Disallowed Apps"
+    override val preferenceTitle = R.string.pref_select_apps
 
     override fun updateView() {
         val isAllowedList = getStringPrefValue(OscPrefKey.ROUTE_APP_LIST_TYPE, sharedPreferences!!) == LIST_TYPE_ALLOWED
-        val verb = if (isAllowedList) "Allowed" else "Disallowed"
+        val size = getSetPrefValue(oscPrefKey, sharedPreferences!!).size
 
-        summary = when (val size = getSetPrefValue(oscPrefKey, sharedPreferences!!).size) {
-            0 -> "[No App $verb]"
-            1 -> "[1 App $verb]"
-            else -> "[$size Apps $verb]"
+        summary = if (size == 0) {
+            context.getString(
+                if (isAllowedList) R.string.summary_no_app_allowed else R.string.summary_no_app_disallowed
+            )
+        } else {
+            context.resources.getQuantityString(
+                if (isAllowedList) R.plurals.summary_apps_allowed else R.plurals.summary_apps_disallowed,
+                size,
+                size,
+            )
         }
     }
 }

@@ -6,7 +6,9 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
+import kittoku.osc.R
 import kittoku.osc.SharedBridge
+import kittoku.osc.preference.LIST_TYPE_ALLOWED
 import kittoku.osc.preference.OscPrefKey
 import kittoku.osc.preference.accessor.getBooleanPrefValue
 import kittoku.osc.preference.accessor.getStringPrefValue
@@ -46,33 +48,34 @@ internal class NetworkObserver(val bridge: SharedBridge) {
 
     private fun updateSummary(properties: LinkProperties) {
         val summary = mutableListOf<String>()
+        val service = bridge.service
 
         bridge.sslTerminal!!.getSession().also {
             if (!it.isValid) return
 
-            summary.add("[SSL/TLS Parameters]")
-            summary.add("PROTOCOL: ${it.protocol}")
-            summary.add("SUITE: ${it.cipherSuite}")
+            summary.add(service.getString(R.string.status_ssl))
+            summary.add(service.getString(R.string.status_protocol, it.protocol))
+            summary.add(service.getString(R.string.status_suite, it.cipherSuite))
         }
         summary.add("")
 
-        summary.add("[Assigned IP Address]")
+        summary.add(service.getString(R.string.status_assigned_ip))
         properties.linkAddresses.forEach {
             summary.add(it.address.hostAddress ?: "")
         }
         summary.add("")
 
-        summary.add("[DNS Server Address]")
+        summary.add(service.getString(R.string.status_dns))
         if (properties.dnsServers.isNotEmpty()) {
             properties.dnsServers.forEach {
                 summary.add(it.hostAddress ?: "")
             }
         } else {
-            summary.add("Not specified")
+            summary.add(service.getString(R.string.status_not_specified))
         }
         summary.add("")
 
-        summary.add("[Routing]")
+        summary.add(service.getString(R.string.status_routing))
         properties.routes.forEach {
             summary.add(it.toString())
         }
@@ -80,7 +83,13 @@ internal class NetworkObserver(val bridge: SharedBridge) {
 
         val doEnableAppBasedRule = getBooleanPrefValue(OscPrefKey.ROUTE_DO_ENABLE_APP_BASED_RULE, bridge.prefs)
         if (doEnableAppBasedRule) {
-            summary.add("[${getStringPrefValue(OscPrefKey.ROUTE_APP_LIST_TYPE, bridge.prefs)}]")
+            val listType = getStringPrefValue(OscPrefKey.ROUTE_APP_LIST_TYPE, bridge.prefs)
+            val listLabel = if (listType == LIST_TYPE_ALLOWED) {
+                service.getString(R.string.list_type_allowed)
+            } else {
+                service.getString(R.string.list_type_disallowed)
+            }
+            summary.add("[$listLabel]")
             bridge.selectedApps.forEach { summary.add(it.label) }
         }
 

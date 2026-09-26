@@ -92,7 +92,7 @@ internal class SstpTileService : TileService() {
     }
 
     override fun onClick() {
-        if (!isVpnPrepared || checkPreferences(prefs) != null) return
+        if (!isVpnPrepared || checkPreferences(prefs, this) != null) return
 
         flipTileState()
 

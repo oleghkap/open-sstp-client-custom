@@ -11,7 +11,7 @@ import kittoku.osc.preference.accessor.getBooleanPrefValue
 internal class HomeConnectorPreference(context: Context, attrs: AttributeSet) : SwitchPreferenceCompat(context, attrs), OscPreference {
     override val oscPrefKey = OscPrefKey.HOME_CONNECTOR
     override val parentKey: OscPrefKey? = null
-    override val preferenceTitle = ""
+    override val preferenceTitle = 0
     override fun updateView() {
         isChecked = getBooleanPrefValue(oscPrefKey, sharedPreferences!!)
     }

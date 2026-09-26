@@ -110,7 +110,7 @@ internal class SstpVpnService : VpnService() {
                     prepareLogWriter()
                 }
 
-                logWriter?.write("Establish VPN connection")
+                logWriter?.write(getString(R.string.log_establish))
 
                 initializeClient()
 
@@ -145,25 +145,25 @@ internal class SstpVpnService : VpnService() {
 
         val prefURI = getURIPrefValue(OscPrefKey.LOG_DIR, prefs)
         if (prefURI == null) {
-            notifyError("LOG: ERR_NULL_PREFERENCE")
+            notifyError(getString(R.string.notify_log_null_preference))
             return
         }
 
         val dirURI = DocumentFile.fromTreeUri(this, prefURI)
         if (dirURI == null) {
-            notifyError("LOG: ERR_NULL_DIRECTORY")
+            notifyError(getString(R.string.notify_log_null_directory))
             return
         }
 
         val fileURI = dirURI.createFile("text/plain", filename)
         if (fileURI == null) {
-            notifyError("LOG: ERR_NULL_FILE")
+            notifyError(getString(R.string.notify_log_null_file))
             return
         }
 
         val stream = contentResolver.openOutputStream(fileURI.uri, "wa")
         if (stream == null) {
-            notifyError("LOG: ERR_NULL_STREAM")
+            notifyError(getString(R.string.notify_log_null_stream))
             return
         }
 
@@ -177,7 +177,7 @@ internal class SstpVpnService : VpnService() {
                     val life = it - 1
                     setIntPrefValue(life, OscPrefKey.RECONNECTION_LIFE, prefs)
 
-                    val message = "Reconnection will be tried (LIFE = $life)"
+                    val message = getString(R.string.notification_reconnect, life)
                     notifyMessage(message, NOTIFICATION_RECONNECT_ID, NOTIFICATION_RECONNECT_CHANNEL)
                     logWriter?.report(message)
                 }
@@ -194,13 +194,13 @@ internal class SstpVpnService : VpnService() {
 
     private fun beForegrounded() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            arrayOf(
-                NOTIFICATION_ERROR_CHANNEL,
-                NOTIFICATION_RECONNECT_CHANNEL,
-                NOTIFICATION_DISCONNECT_CHANNEL,
-                NOTIFICATION_CERTIFICATE_CHANNEL,
-            ).map {
-                NotificationChannel(it, it, NotificationManager.IMPORTANCE_DEFAULT)
+            listOf(
+                NOTIFICATION_ERROR_CHANNEL to R.string.channel_error,
+                NOTIFICATION_RECONNECT_CHANNEL to R.string.channel_reconnect,
+                NOTIFICATION_DISCONNECT_CHANNEL to R.string.channel_disconnect,
+                NOTIFICATION_CERTIFICATE_CHANNEL to R.string.channel_certificate,
+            ).map { (id, nameRes) ->
+                NotificationChannel(id, getString(nameRes), NotificationManager.IMPORTANCE_DEFAULT)
             }.also {
                 notificationManager.createNotificationChannels(it)
             }
@@ -218,7 +218,7 @@ internal class SstpVpnService : VpnService() {
             it.setOngoing(true)
             it.setAutoCancel(true)
             it.setSmallIcon(R.drawable.ic_baseline_vpn_lock_24)
-            it.addAction(R.drawable.ic_baseline_close_24, "DISCONNECT", pendingIntent)
+            it.addAction(R.drawable.ic_baseline_close_24, getString(R.string.action_disconnect), pendingIntent)
         }
 
         startForeground(NOTIFICATION_DISCONNECT_ID, builder.build())
@@ -259,7 +259,7 @@ internal class SstpVpnService : VpnService() {
     }
 
     override fun onDestroy() {
-        logWriter?.write("Terminate VPN connection")
+        logWriter?.write(getString(R.string.log_terminate))
         logWriter?.close()
         logWriter = null
 

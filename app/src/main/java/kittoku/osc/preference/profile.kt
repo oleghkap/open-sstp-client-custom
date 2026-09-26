@@ -1,6 +1,8 @@
 package kittoku.osc.preference
 
+import android.content.Context
 import android.content.SharedPreferences
+import kittoku.osc.R
 import kittoku.osc.extension.toUri
 import kittoku.osc.preference.accessor.getBooleanPrefValue
 import kittoku.osc.preference.accessor.getIntPrefValue
@@ -101,10 +103,10 @@ internal fun importProfile(profile: Profile?, prefs: SharedPreferences) {
     }
 }
 
-internal fun summarizeProfile(profile: Profile): String {
+internal fun summarizeProfile(profile: Profile, context: Context): String {
     val hostname = profile.stringSetting[OscPrefKey.HOME_HOSTNAME.name]
     val username = profile.stringSetting[OscPrefKey.HOME_USERNAME.name]
     val portNumber = profile.intSetting[OscPrefKey.SSL_PORT.name].toString()
 
-    return "[Hostname]\n$hostname\n\n[Username]\n$username\n\n[Port Number]\n$portNumber"
+    return context.getString(R.string.profile_summary, hostname, username, portNumber)
 }
