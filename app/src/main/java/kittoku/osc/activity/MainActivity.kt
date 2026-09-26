@@ -30,14 +30,25 @@ import kittoku.osc.fragment.HomeFragment
 import kittoku.osc.fragment.SettingFragment
 import kittoku.osc.preference.OscPrefKey
 import kittoku.osc.preference.PROFILE_KEY_HEADER
+import kittoku.osc.preference.RemoteConfigResult
 import kittoku.osc.preference.accessor.getStringPrefValue
+import kittoku.osc.preference.applyRemoteConfigUrl
 import kittoku.osc.preference.custom.OscPreference
 import kittoku.osc.preference.deserializeProfile
+import kittoku.osc.preference.downloadLinkedProfile
 import kittoku.osc.preference.fetchRemoteConfigOnProcessStart
 import kittoku.osc.preference.importProfile
+import kittoku.osc.preference.parseProfileLink
 import kittoku.osc.preference.serializeProfile
+import kittoku.osc.preference.storeNamedProfile
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
+import java.net.URI
 
 
 class MainActivity : AppCompatActivity() {
@@ -47,6 +58,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var settingFragment: PreferenceFragmentCompat
 
     private val dialogResource: Int by lazy { EditTextPreference(this).dialogLayoutResource }
+    private val linkScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     private val profileLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode != RESULT_OK) {
@@ -154,12 +166,34 @@ class MainActivity : AppCompatActivity() {
         }
 
         prefs.registerOnSharedPreferenceChangeListener(remoteStatusListener)
-        fetchRemoteConfigOnProcessStart(applicationContext, prefs) {
-            if (!isDestroyed) updatePreferenceView()
+        val profileLink = intent?.dataString?.let { parseProfileLink(it) }
+        if (profileLink == null) {
+            if (intent?.dataString != null && intent?.data?.host == "profile") {
+                Toast.makeText(this, R.string.error_remote_config_invalid_url, Toast.LENGTH_LONG).show()
+            }
+            fetchRemoteConfigOnProcessStart(applicationContext, prefs) {
+                if (!isDestroyed) updatePreferenceView()
+            }
+        } else {
+            showProfileLinkDialog(profileLink)
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val profileLink = intent.dataString?.let { parseProfileLink(it) }
+        if (profileLink == null) {
+            if (intent.data?.host == "profile") {
+                Toast.makeText(this, R.string.error_remote_config_invalid_url, Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+        showProfileLinkDialog(profileLink)
+    }
+
     override fun onDestroy() {
+        linkScope.cancel()
         prefs.unregisterOnSharedPreferenceChangeListener(remoteStatusListener)
         super.onDestroy()
     }
@@ -189,6 +223,95 @@ class MainActivity : AppCompatActivity() {
         }
 
         return true
+    }
+
+    private fun showProfileLinkDialog(url: String) {
+        AlertDialog.Builder(this).also {
+            it.setMessage(getString(R.string.dialog_profile_link, url))
+            it.setPositiveButton(R.string.action_current_profile) { _, _ ->
+                clearProfileLinkIntent()
+                applyProfileLinkToCurrent(url)
+            }
+            it.setNeutralButton(R.string.action_new_profile) { _, _ ->
+                clearProfileLinkIntent()
+                showNewProfileLinkDialog(url)
+            }
+            it.setNegativeButton(R.string.action_cancel) { _, _ ->
+                clearProfileLinkIntent()
+                fetchRemoteConfigAfterLink()
+            }
+            it.setOnCancelListener {
+                clearProfileLinkIntent()
+                fetchRemoteConfigAfterLink()
+            }
+            it.show()
+        }
+    }
+
+    private fun showNewProfileLinkDialog(url: String) {
+        val inflated = layoutInflater.inflate(dialogResource, null)
+        val editText = inflated.firstEditText()
+        val host = URI(url).host ?: url
+
+        editText.inputType = InputType.TYPE_CLASS_TEXT
+        editText.hint = host
+        editText.requestFocus()
+
+        AlertDialog.Builder(this).also {
+            it.setView(inflated)
+            it.setMessage(getString(R.string.dialog_save_profile))
+            it.setPositiveButton(R.string.action_save) { _, _ ->
+                val name = editText.text.toString().ifEmpty { host }
+                saveProfileLink(name, url)
+            }
+            it.setNegativeButton(R.string.action_cancel) { _, _ ->
+                fetchRemoteConfigAfterLink()
+            }
+            it.setOnCancelListener { fetchRemoteConfigAfterLink() }
+            it.show()
+        }
+    }
+
+    private fun fetchRemoteConfigAfterLink() {
+        fetchRemoteConfigOnProcessStart(applicationContext, prefs) {
+            if (!isDestroyed) updatePreferenceView()
+        }
+    }
+
+    private fun applyProfileLinkToCurrent(url: String) {
+        linkScope.launch {
+            val result = applyRemoteConfigUrl(applicationContext, prefs, url)
+            if (isDestroyed) return@launch
+            updatePreferenceView()
+            val message = when (result) {
+                RemoteConfigResult.Disabled -> return@launch
+                RemoteConfigResult.Applied -> getString(R.string.toast_remote_config_applied)
+                RemoteConfigResult.Unchanged -> getString(R.string.toast_remote_config_unchanged)
+                is RemoteConfigResult.Failed -> result.message
+            }
+            Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun saveProfileLink(name: String, url: String) {
+        linkScope.launch {
+            val linked = downloadLinkedProfile(applicationContext, url)
+            storeNamedProfile(prefs, name, linked.profile)
+            if (isDestroyed) return@launch
+            val message = if (linked.errorMessage == null) {
+                getString(R.string.toast_profile_saved)
+            } else {
+                getString(R.string.toast_profile_link_saved_offline)
+            }
+            Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+            fetchRemoteConfigOnProcessStart(applicationContext, prefs) {
+                if (!isDestroyed) updatePreferenceView()
+            }
+        }
+    }
+
+    private fun clearProfileLinkIntent() {
+        setIntent(Intent(this, MainActivity::class.java))
     }
 
     private fun showSaveDialog() {

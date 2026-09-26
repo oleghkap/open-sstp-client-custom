@@ -96,6 +96,7 @@
     <string name="dialog_export_warning">Пароль тоже будет экспортирован открытым текстом. Если это не нужно, очистите поле «Пароль» перед экспортом.</string>
     <string name="dialog_reload_confirm">Сбросить настройки до значений по умолчанию?</string>
     <string name="dialog_remote_config_warning">Нужен тот же JSON, что создаёт «Экспортировать профиль», и только по HTTPS. Пароль в файле хранится открытым текстом. Значения, которых нет в файле, не меняются. Этот URL сохраняется и загружается вместе с профилем. Если файл содержит новый URL, следующая загрузка идёт с него.</string>
+    <string name="dialog_profile_link">Куда добавить эту ссылку на конфигурацию?\n\n%1$s\n\n«Текущий» обновит открытые настройки. «Новый» добавит профиль в список и не изменит открытые настройки.</string>
 
     <string name="action_save">СОХРАНИТЬ</string>
     <string name="action_cancel">ОТМЕНА</string>
@@ -105,11 +106,14 @@
     <string name="action_load">ЗАГРУЗИТЬ</string>
     <string name="action_delete">УДАЛИТЬ</string>
     <string name="action_disconnect">ОТКЛЮЧИТЬ</string>
+    <string name="action_current_profile">ТЕКУЩИЙ</string>
+    <string name="action_new_profile">НОВЫЙ</string>
 
     <string name="toast_import_failed">НЕ УДАЛОСЬ ИМПОРТИРОВАТЬ</string>
     <string name="toast_profile_imported">ПРОФИЛЬ ИМПОРТИРОВАН</string>
     <string name="toast_profile_exported">ПРОФИЛЬ ЭКСПОРТИРОВАН</string>
     <string name="toast_profile_saved">ПРОФИЛЬ СОХРАНЁН</string>
+    <string name="toast_profile_link_saved_offline">ПРОФИЛЬ СОХРАНЁН. ФАЙЛ ПОКА НЕ СКАЧАН.</string>
     <string name="toast_defaults_reloaded">НАСТРОЙКИ СБРОШЕНЫ</string>
     <string name="toast_invalid_profile">НЕКОРРЕКТНЫЙ ПРОФИЛЬ</string>
     <string name="toast_profile_loaded">ПРОФИЛЬ ЗАГРУЖЕН</string>

@@ -6,15 +6,15 @@ import kittoku.osc.BuildConfig
 import kittoku.osc.R
 import kittoku.osc.preference.accessor.getBooleanPrefValue
 import kittoku.osc.preference.accessor.getStringPrefValue
+import kittoku.osc.preference.accessor.setBooleanPrefValue
 import kittoku.osc.preference.accessor.setStringPrefValue
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import java.io.ByteArrayOutputStream
@@ -23,6 +23,7 @@ import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URISyntaxException
+import java.net.URLDecoder
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -36,11 +37,12 @@ private const val REMOTE_CONFIG_READ_TIMEOUT_MS = 15_000
 
 private val remoteJson = Json { ignoreUnknownKeys = true }
 
-private val fetchScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 private val fetchGate = Mutex()
-private var inFlight: Deferred<RemoteConfigResult>? = null
 private val fetchedOnProcessStart = AtomicBoolean(false)
+
+internal const val PROFILE_LINK_SCHEME = "osc"
+internal const val PROFILE_LINK_HOST = "profile"
 
 internal enum class RemoteConfigFailure {
     URL_MISSING,
@@ -88,18 +90,69 @@ internal suspend fun fetchRemoteConfigIfEnabled(
         return RemoteConfigResult.Disabled
     }
 
-    val task = fetchGate.withLock {
-        val running = inFlight
-        if (running != null && running.isActive) {
-            running
-        } else {
-            fetchScope.async {
-                downloadAndApply(context.applicationContext, prefs)
-            }.also { inFlight = it }
+    return fetchGate.withLock {
+        withContext(Dispatchers.IO) {
+            downloadAndApply(context.applicationContext, prefs)
         }
     }
+}
 
-    return task.await()
+internal suspend fun applyRemoteConfigUrl(
+    context: Context,
+    prefs: SharedPreferences,
+    url: String,
+): RemoteConfigResult {
+    return fetchGate.withLock {
+        withContext(Dispatchers.IO) {
+            setBooleanPrefValue(true, OscPrefKey.REMOTE_CONFIG_ENABLED, prefs)
+            setStringPrefValue(url, OscPrefKey.REMOTE_CONFIG_URL, prefs)
+            downloadAndApply(context.applicationContext, prefs)
+        }
+    }
+}
+
+internal data class LinkedProfile(
+    val profile: Profile,
+    val errorMessage: String?,
+)
+
+internal suspend fun downloadLinkedProfile(context: Context, url: String): LinkedProfile {
+    return fetchGate.withLock {
+        withContext(Dispatchers.IO) {
+            try {
+                LinkedProfile(profileFromRemoteLink(downloadRemoteProfile(url), url), null)
+            } catch (error: RemoteConfigException) {
+                LinkedProfile(profileFromRemoteLink(null, url), failureMessage(context, error))
+            } catch (_: IOException) {
+                LinkedProfile(
+                    profileFromRemoteLink(null, url),
+                    context.getString(R.string.error_remote_config_network),
+                )
+            }
+        }
+    }
+}
+
+internal fun parseProfileLink(link: String): String? {
+    val uri = try {
+        URI(link.trim())
+    } catch (_: URISyntaxException) {
+        return null
+    }
+    if (!uri.scheme.equals(PROFILE_LINK_SCHEME, ignoreCase = true)) return null
+    if (!uri.host.equals(PROFILE_LINK_HOST, ignoreCase = true)) return null
+
+    val encoded = queryParameter(uri.rawQuery, "url") ?: return null
+    val url = try {
+        URLDecoder.decode(encoded, Charsets.UTF_8.name())
+    } catch (_: IllegalArgumentException) {
+        return null
+    }
+    return try {
+        requireHttps(url).toString()
+    } catch (_: RemoteConfigException) {
+        null
+    }
 }
 
 internal fun requireHttps(raw: String): URI {
@@ -162,14 +215,7 @@ private fun downloadAndApply(context: Context, prefs: SharedPreferences): Remote
             throw RemoteConfigException(RemoteConfigFailure.URL_MISSING)
         }
 
-        val bytes = downloadRemoteConfig(url)
-        val profile = try {
-            decodeRemoteProfile(bytes)
-        } catch (_: SerializationException) {
-            throw RemoteConfigException(RemoteConfigFailure.INVALID_JSON)
-        } catch (_: IllegalArgumentException) {
-            throw RemoteConfigException(RemoteConfigFailure.INVALID_JSON)
-        }
+        val profile = downloadRemoteProfile(url)
 
         if (applyPresentSettings(profile, prefs)) {
             RemoteConfigResult.Applied
@@ -184,6 +230,26 @@ private fun downloadAndApply(context: Context, prefs: SharedPreferences): Remote
 
     recordStatus(context, prefs, result)
     return result
+}
+
+internal fun downloadRemoteProfile(url: String): Profile {
+    return try {
+        decodeRemoteProfile(downloadRemoteConfig(url))
+    } catch (_: SerializationException) {
+        throw RemoteConfigException(RemoteConfigFailure.INVALID_JSON)
+    } catch (_: IllegalArgumentException) {
+        throw RemoteConfigException(RemoteConfigFailure.INVALID_JSON)
+    }
+}
+
+private fun queryParameter(query: String?, name: String): String? {
+    if (query.isNullOrEmpty()) return null
+    return query.split('&').firstNotNullOfOrNull { part ->
+        val separator = part.indexOf('=')
+        if (separator <= 0) return@firstNotNullOfOrNull null
+        if (part.substring(0, separator) != name) return@firstNotNullOfOrNull null
+        part.substring(separator + 1)
+    }
 }
 
 private fun downloadRemoteConfig(url: String): ByteArray {

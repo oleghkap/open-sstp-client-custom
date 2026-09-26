@@ -96,6 +96,7 @@
     <string name="dialog_export_warning">La contraseña también se exportará en texto sin formato. Si no lo desea, bórrela antes de exportar.</string>
     <string name="dialog_reload_confirm">¿Restablecer los ajustes predeterminados?</string>
     <string name="dialog_remote_config_warning">Use el mismo JSON que crea «Exportar perfil» y sírvalo por HTTPS. La contraseña en el archivo está en texto sin formato. Los valores que no estén en el archivo no cambian. Esta URL se guarda y se carga con el perfil. Si el archivo contiene una URL nueva, la siguiente descarga la usa.</string>
+    <string name="dialog_profile_link">¿Dónde añadir este enlace de configuración?\n\n%1$s\n\n«Actual» actualiza los ajustes abiertos. «Nuevo» añade un perfil a la lista y no cambia los ajustes abiertos.</string>
 
     <string name="action_save">GUARDAR</string>
     <string name="action_cancel">CANCELAR</string>
@@ -105,11 +106,14 @@
     <string name="action_load">CARGAR</string>
     <string name="action_delete">ELIMINAR</string>
     <string name="action_disconnect">DESCONECTAR</string>
+    <string name="action_current_profile">ACTUAL</string>
+    <string name="action_new_profile">NUEVO</string>
 
     <string name="toast_import_failed">ERROR AL IMPORTAR</string>
     <string name="toast_profile_imported">PERFIL IMPORTADO</string>
     <string name="toast_profile_exported">PERFIL EXPORTADO</string>
     <string name="toast_profile_saved">PERFIL GUARDADO</string>
+    <string name="toast_profile_link_saved_offline">PERFIL GUARDADO. EL ARCHIVO AÚN NO SE HA DESCARGADO.</string>
     <string name="toast_defaults_reloaded">VALORES RESTABLECIDOS</string>
     <string name="toast_invalid_profile">PERFIL NO VÁLIDO</string>
     <string name="toast_profile_loaded">PERFIL CARGADO</string>

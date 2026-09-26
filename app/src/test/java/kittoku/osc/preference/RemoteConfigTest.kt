@@ -3,6 +3,7 @@ package kittoku.osc.preference
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -179,6 +180,48 @@ class RemoteConfigTest {
         expectFailure(RemoteConfigFailure.NOT_HTTPS) {
             resolveHttps(current, "http://vpn.example.com/config.json")
         }
+    }
+
+    @Test
+    fun profileLinkDecodesTheHttpsUrl() {
+        assertEquals(
+            "https://example.com/vpn.json",
+            parseProfileLink("osc://profile?url=https%3A%2F%2Fexample.com%2Fvpn.json"),
+        )
+        assertNull(parseProfileLink("osc://profile?url=http%3A%2F%2Fexample.com%2Fvpn.json"))
+        assertNull(parseProfileLink("https://example.com/vpn.json"))
+        assertNull(parseProfileLink("osc://other?url=https%3A%2F%2Fexample.com%2Fvpn.json"))
+    }
+
+    @Test
+    fun newProfileKeepsTheLinkWithoutReplacingOpenSettings() {
+        val fromFile = Profile(
+            stringSetting = mutableMapOf(
+                OscPrefKey.HOME_HOSTNAME.name to "vpn.example.com",
+                OscPrefKey.REMOTE_CONFIG_URL.name to "http://evil.example/next.json",
+            ),
+            booleanSetting = mutableMapOf(OscPrefKey.REMOTE_CONFIG_ENABLED.name to false),
+        )
+
+        val profile = profileFromRemoteLink(fromFile, "https://example.com/vpn.json")
+
+        assertEquals("vpn.example.com", profile.stringSetting[OscPrefKey.HOME_HOSTNAME.name])
+        assertEquals("https://example.com/vpn.json", profile.stringSetting[OscPrefKey.REMOTE_CONFIG_URL.name])
+        assertEquals(true, profile.booleanSetting[OscPrefKey.REMOTE_CONFIG_ENABLED.name])
+    }
+
+    @Test
+    fun newProfileUsesHttpsUrlFromTheFile() {
+        val fromFile = Profile(
+            stringSetting = mutableMapOf(
+                OscPrefKey.REMOTE_CONFIG_URL.name to "https://cdn.example.com/next.json",
+            ),
+        )
+
+        val profile = profileFromRemoteLink(fromFile, "https://example.com/vpn.json")
+
+        assertEquals("https://cdn.example.com/next.json", profile.stringSetting[OscPrefKey.REMOTE_CONFIG_URL.name])
+        assertEquals(true, profile.booleanSetting[OscPrefKey.REMOTE_CONFIG_ENABLED.name])
     }
 
     @Test

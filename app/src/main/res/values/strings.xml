@@ -96,6 +96,7 @@
     <string name="dialog_export_warning">Password will be also exported as plain text. If you don\'t want that, blank Password before exporting.</string>
     <string name="dialog_reload_confirm">Are you sure to reload the default settings?</string>
     <string name="dialog_remote_config_warning">Use the same JSON as Export Profile, and serve it over HTTPS. A password in the file is plain text. Values that are not in the file stay as they are. This URL is saved and loaded with the profile. If the file contains a new URL, the next download uses it.</string>
+    <string name="dialog_profile_link">Where should this configuration link go?\n\n%1$s\n\nCurrent updates the open settings. New adds a profile to the list and leaves the open settings as they are.</string>
 
     <string name="action_save">SAVE</string>
     <string name="action_cancel">CANCEL</string>
@@ -105,11 +106,14 @@
     <string name="action_load">LOAD</string>
     <string name="action_delete">DELETE</string>
     <string name="action_disconnect">DISCONNECT</string>
+    <string name="action_current_profile">CURRENT</string>
+    <string name="action_new_profile">NEW</string>
 
     <string name="toast_import_failed">IMPORT FAILED</string>
     <string name="toast_profile_imported">PROFILE IMPORTED</string>
     <string name="toast_profile_exported">PROFILE EXPORTED</string>
     <string name="toast_profile_saved">PROFILE SAVED</string>
+    <string name="toast_profile_link_saved_offline">PROFILE SAVED. THE FILE COULD NOT BE DOWNLOADED YET.</string>
     <string name="toast_defaults_reloaded">DEFAULTS RELOADED</string>
     <string name="toast_invalid_profile">INVALID PROFILE</string>
     <string name="toast_profile_loaded">PROFILE LOADED</string>
