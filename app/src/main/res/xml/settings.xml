@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory android:title="@string/category_remote_config">
+        <kittoku.osc.preference.custom.RemoteConfigEnabledPreference android:key="REMOTE_CONFIG_ENABLED"/>
+        <kittoku.osc.preference.custom.RemoteConfigUrlPreference android:key="REMOTE_CONFIG_URL"/>
+        <kittoku.osc.preference.custom.RemoteConfigFetchPreference android:key="REMOTE_CONFIG_FETCH"/>
+        <kittoku.osc.preference.custom.RemoteConfigStatusPreference android:key="REMOTE_CONFIG_STATUS"/>
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="@string/category_ssl">
         <kittoku.osc.preference.custom.SSLPortPreference android:key="SSL_PORT"/>
         <kittoku.osc.preference.custom.SSLVersionPreference android:key="SSL_VERSION"/>

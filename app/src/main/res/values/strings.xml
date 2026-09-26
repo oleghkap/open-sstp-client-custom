@@ -25,6 +25,7 @@
     <string name="category_routing">Routing</string>
     <string name="category_reconnection">Reconnection</string>
     <string name="category_log">Log</string>
+    <string name="category_remote_config">Remote Configuration</string>
 
     <string name="pref_hostname">Hostname</string>
     <string name="pref_username">Username</string>
@@ -69,6 +70,10 @@
     <string name="pref_log_dir">Select Log Directory</string>
     <string name="pref_status">Current Status</string>
     <string name="pref_project_page">Move to this app\'s project page</string>
+    <string name="pref_remote_config">Load Configuration from URL</string>
+    <string name="pref_remote_config_url">Configuration URL</string>
+    <string name="pref_remote_config_fetch">Update Now</string>
+    <string name="pref_remote_config_status">Last Check</string>
 
     <string name="summary_no_value">[No Value Entered]</string>
     <string name="summary_password_entered">[Password Entered]</string>
@@ -79,6 +84,8 @@
     <string name="summary_no_protocol">[No Protocol Selected]</string>
     <string name="summary_no_app_allowed">[No App Allowed]</string>
     <string name="summary_no_app_disallowed">[No App Disallowed]</string>
+    <string name="summary_remote_config">On startup and before each connection, download a profile JSON and apply only the values it contains. An active connection is not interrupted.</string>
+    <string name="summary_remote_config_never">Not checked yet</string>
 
     <string name="dialog_dns_notice">NOTICE: packets associated with this address is routed to the VPN tunnel</string>
     <string name="ssl_version_default">DEFAULT</string>
@@ -88,6 +95,7 @@
     <string name="dialog_save_profile">Enter the profile\'s name.\nIf blank, the hostname will be used.\nIf duplicated, the profile will be overwritten.</string>
     <string name="dialog_export_warning">Password will be also exported as plain text. If you don\'t want that, blank Password before exporting.</string>
     <string name="dialog_reload_confirm">Are you sure to reload the default settings?</string>
+    <string name="dialog_remote_config_warning">Use the same JSON as Export Profile, and serve it over HTTPS. A password in the file is plain text. Values that are not in the file stay as they are.</string>
 
     <string name="action_save">SAVE</string>
     <string name="action_cancel">CANCEL</string>
@@ -107,6 +115,8 @@
     <string name="toast_profile_loaded">PROFILE LOADED</string>
     <string name="toast_profile_deleted">PROFILE DELETED</string>
     <string name="toast_invalid_setting">INVALID SETTING: %1$s</string>
+    <string name="toast_remote_config_applied">CONFIGURATION UPDATED</string>
+    <string name="toast_remote_config_unchanged">CONFIGURATION UNCHANGED</string>
 
     <string name="error_hostname_missing">Hostname is missing</string>
     <string name="error_port_range">The given port is out of 0-65535</string>
@@ -126,6 +136,14 @@
     <string name="error_custom_dns_missing">No custom DNS server address was given</string>
     <string name="error_retry_count">Retry Count must be a positive integer</string>
     <string name="error_log_dir_missing">No log directory was selected</string>
+    <string name="error_remote_config_url_missing">Configuration URL is missing</string>
+    <string name="error_remote_config_https">Configuration URL must use HTTPS</string>
+    <string name="error_remote_config_invalid_url">Configuration URL is invalid</string>
+    <string name="error_remote_config_http">Server responded with HTTP %1$d</string>
+    <string name="error_remote_config_too_large">Configuration file is too large</string>
+    <string name="error_remote_config_redirect">Too many redirects</string>
+    <string name="error_remote_config_invalid_json">Configuration file is not a valid profile</string>
+    <string name="error_remote_config_network">Could not download the configuration</string>
 
     <string name="status_ssl">[SSL/TLS Parameters]</string>
     <string name="status_protocol">PROTOCOL: %1$s</string>
@@ -134,6 +152,9 @@
     <string name="status_dns">[DNS Server Address]</string>
     <string name="status_not_specified">Not specified</string>
     <string name="status_routing">[Routing]</string>
+    <string name="remote_config_status_applied">Updated %1$s</string>
+    <string name="remote_config_status_unchanged">No changes %1$s</string>
+    <string name="remote_config_status_failed">Failed %1$s: %2$s</string>
 
     <string name="profile_summary">[Hostname]\n%1$s\n\n[Username]\n%2$s\n\n[Port Number]\n%3$s</string>
 

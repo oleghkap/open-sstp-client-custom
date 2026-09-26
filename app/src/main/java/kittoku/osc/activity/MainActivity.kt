@@ -33,6 +33,7 @@ import kittoku.osc.preference.PROFILE_KEY_HEADER
 import kittoku.osc.preference.accessor.getStringPrefValue
 import kittoku.osc.preference.custom.OscPreference
 import kittoku.osc.preference.deserializeProfile
+import kittoku.osc.preference.fetchRemoteConfigOnProcessStart
 import kittoku.osc.preference.importProfile
 import kittoku.osc.preference.serializeProfile
 import java.io.BufferedInputStream
@@ -85,7 +86,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updatePreferenceView() {
+    private val remoteStatusListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == OscPrefKey.REMOTE_CONFIG_STATUS.name && !isDestroyed) {
+            updatePreferenceView()
+        }
+    }
+
+    internal fun updatePreferenceView() {
         listOf(homeFragment, settingFragment).forEach { fragment ->
             if (fragment.isAdded) {
                 val preferenceGroups = mutableListOf<PreferenceGroup>(fragment.preferenceScreen)
@@ -145,6 +152,16 @@ class MainActivity : AppCompatActivity() {
                 requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
             }
         }
+
+        prefs.registerOnSharedPreferenceChangeListener(remoteStatusListener)
+        fetchRemoteConfigOnProcessStart(applicationContext, prefs) {
+            if (!isDestroyed) updatePreferenceView()
+        }
+    }
+
+    override fun onDestroy() {
+        prefs.unregisterOnSharedPreferenceChangeListener(remoteStatusListener)
+        super.onDestroy()
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
