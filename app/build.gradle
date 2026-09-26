@@ -17,7 +17,7 @@ android {
         versionName "1.10.3"
 
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
-        resourceConfigurations += ["en", "ru"]
+        resourceConfigurations += ["en", "ru", "es"]
     }
 
     buildTypes {
