@@ -250,13 +250,27 @@ internal class Controller(internal val bridge: SharedBridge) {
         return false
     }
 
-    internal fun disconnect() { // use if the user want to normally disconnect
-        kill(false) {
+    internal fun disconnect(closeService: Boolean = true) { // use if the user want to normally disconnect
+        kill(isReconnectionRequested = false, closeService = closeService) {
             sstpClient?.sendLastPacket(SSTP_MESSAGE_TYPE_CALL_DISCONNECT)
         }
     }
 
-    internal fun kill(isReconnectionRequested: Boolean, cleanup: (suspend () -> Unit)?) {
+    internal fun abandon() {
+        if (!mutex.tryLock()) return
+        jobMain?.cancel()
+        bridge.service.scope.launch {
+            observer?.close()
+            cancelClients()
+            closeTerminals()
+        }
+    }
+
+    internal fun kill(
+        isReconnectionRequested: Boolean,
+        closeService: Boolean = true,
+        cleanup: (suspend () -> Unit)? = null,
+    ) {
         if (!mutex.tryLock()) return
 
         bridge.service.scope.launch {
@@ -271,7 +285,7 @@ internal class Controller(internal val bridge: SharedBridge) {
 
             if (isReconnectionRequested && isReconnectionAvailable) {
                 bridge.service.launchJobReconnect()
-            } else {
+            } else if (closeService) {
                 bridge.service.close()
             }
         }

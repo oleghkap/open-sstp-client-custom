@@ -67,11 +67,10 @@ internal class SstpVpnService : VpnService() {
     internal lateinit var scope: CoroutineScope
 
     internal var logWriter: LogWriter? = null
-    private var controller: Controller?  = null
+    private val connectGate = ClientStartGate<Controller>()
 
     private var jobReconnect: Job? = null
     private var jobConnect: Job? = null
-    @Volatile private var connectGeneration = 0
 
     private fun setRootState(state: Boolean) {
         setBooleanPrefValue(state, OscPrefKey.ROOT_STATE, prefs)
@@ -107,10 +106,9 @@ internal class SstpVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         return when (intent?.action) {
             ACTION_VPN_CONNECT -> {
-                val generation = ++connectGeneration
+                val generation = connectGate.invalidate { it.abandon() }
                 jobReconnect?.cancel()
                 jobConnect?.cancel()
-                controller?.kill(false, null)
 
                 beForegrounded()
                 setRootState(true)
@@ -120,7 +118,7 @@ internal class SstpVpnService : VpnService() {
             }
 
             else -> {
-                val generation = ++connectGeneration
+                val generation = connectGate.invalidate { it.disconnect(closeService = false) }
                 val reconnectJob = jobReconnect
                 val connectJob = jobConnect
                 jobReconnect = null
@@ -134,10 +132,7 @@ internal class SstpVpnService : VpnService() {
                 scope.launch {
                     reconnectJob?.join()
                     connectJob?.join()
-                    if (generation != connectGeneration) return@launch
-
-                    controller?.disconnect()
-                    controller = null
+                    if (generation != connectGate.generation) return@launch
                     close()
                 }
 
@@ -152,7 +147,7 @@ internal class SstpVpnService : VpnService() {
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
-            if (generation != connectGeneration) return
+            if (generation != connectGate.generation) return
             notifyError(getString(R.string.error_remote_config_network))
             setRootState(false)
             close()
@@ -162,11 +157,11 @@ internal class SstpVpnService : VpnService() {
     private suspend fun openClient(generation: Int, freshSession: Boolean) {
         fetchRemoteConfigIfEnabled(applicationContext, prefs)
         coroutineContext.ensureActive()
-        if (generation != connectGeneration) return
+        if (generation != connectGate.generation) return
 
         val error = checkPreferences(prefs, this)
         if (error != null) {
-            if (generation != connectGeneration) return
+            if (generation != connectGate.generation) return
             setStringPrefValue(error, OscPrefKey.HOME_STATUS, prefs)
             notifyError(getString(R.string.toast_invalid_setting, error))
             setRootState(false)
@@ -175,7 +170,7 @@ internal class SstpVpnService : VpnService() {
         }
 
         coroutineContext.ensureActive()
-        if (generation != connectGeneration) return
+        if (generation != connectGate.generation) return
 
         if (freshSession) {
             resetReconnectionLife(prefs)
@@ -186,13 +181,12 @@ internal class SstpVpnService : VpnService() {
         }
 
         coroutineContext.ensureActive()
-        if (generation != connectGeneration) return
-        initializeClient()
+        initializeClient(generation)
     }
 
-    private fun initializeClient() {
-        controller = Controller(SharedBridge(this)).also {
-            it.launchJobMain()
+    private fun initializeClient(generation: Int) {
+        connectGate.tryStart(generation) {
+            Controller(SharedBridge(this)).also { it.launchJobMain() }
         }
     }
 
@@ -228,7 +222,7 @@ internal class SstpVpnService : VpnService() {
     }
 
     internal fun launchJobReconnect() {
-        val generation = connectGeneration
+        val generation = connectGate.generation
         jobReconnect = scope.launch {
             try {
                 getIntPrefValue(OscPrefKey.RECONNECTION_LIFE, prefs).also {
@@ -245,7 +239,7 @@ internal class SstpVpnService : VpnService() {
                 openClient(generation, freshSession = false)
             } catch (_: CancellationException) {
             } catch (_: Exception) {
-                if (generation != connectGeneration) return@launch
+                if (generation != connectGate.generation) return@launch
                 notifyError(getString(R.string.error_remote_config_network))
                 setRootState(false)
                 close()
@@ -326,8 +320,7 @@ internal class SstpVpnService : VpnService() {
         logWriter?.close()
         logWriter = null
 
-        controller?.kill(false, null)
-        controller = null
+        connectGate.release()?.kill(false)
 
         scope.cancel()
 
