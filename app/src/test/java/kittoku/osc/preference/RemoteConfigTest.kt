@@ -194,6 +194,32 @@ class RemoteConfigTest {
     }
 
     @Test
+    fun profileLinkRoundTripsUrlSafeBase64() {
+        val plain = "https://example.com/vpn.json"
+        val link = profileLinkFor(plain)
+
+        assertEquals("osc://profile?url=aHR0cHM6Ly9leGFtcGxlLmNvbS92cG4uanNvbg", link)
+        assertEquals(plain, parseProfileLink(link))
+
+        val nested = "https://example.com/vpn.json?token=a+b&x=1#frag"
+        val nestedLink = profileLinkFor(nested)
+        assertEquals(nested, parseProfileLink(nestedLink))
+        assertTrue(nestedLink.matches(Regex("osc://profile\\?url=[A-Za-z0-9_-]+")))
+        assertTrue(!nestedLink.contains("token"))
+        assertTrue(!nestedLink.contains("frag"))
+
+        assertEquals(
+            "https://example.com/~user/vpn.json",
+            parseProfileLink("osc://profile?url=aHR0cHM6Ly9leGFtcGxlLmNvbS9+dXNlci92cG4uanNvbg=="),
+        )
+        assertEquals(
+            "https://cdn.example.com/a/b.json?q=1",
+            parseProfileLink("osc://profile?url=aHR0cHM6Ly9jZG4uZXhhbXBsZS5jb20vYS9iLmpzb24/cT0x"),
+        )
+        assertNull(parseProfileLink("osc://profile?url=aHR0cDovL2V4YW1wbGUuY29tL3Zwbi5qc29u"))
+    }
+
+    @Test
     fun newProfileKeepsTheLinkWithoutReplacingOpenSettings() {
         val fromFile = Profile(
             stringSetting = mutableMapOf(

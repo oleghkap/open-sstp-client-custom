@@ -133,6 +133,12 @@ internal suspend fun downloadLinkedProfile(context: Context, url: String): Linke
     }
 }
 
+internal fun profileLinkFor(url: String): String {
+    val https = requireHttps(url).toString()
+    val payload = encodeUrlBase64(https.toByteArray(Charsets.UTF_8))
+    return "$PROFILE_LINK_SCHEME://$PROFILE_LINK_HOST?url=$payload"
+}
+
 internal fun parseProfileLink(link: String): String? {
     val uri = try {
         URI(link.trim())
@@ -143,16 +149,101 @@ internal fun parseProfileLink(link: String): String? {
     if (!uri.host.equals(PROFILE_LINK_HOST, ignoreCase = true)) return null
 
     val encoded = queryParameter(uri.rawQuery, "url") ?: return null
-    val url = try {
+    val decoded = try {
         URLDecoder.decode(encoded, Charsets.UTF_8.name())
     } catch (_: IllegalArgumentException) {
         return null
     }
+
+    httpsUrl(decoded)?.let { return it }
+    decodeProfileUrl(decoded)?.let { return it }
+    if (encoded != decoded) {
+        decodeProfileUrl(encoded)?.let { return it }
+    }
+    return null
+}
+
+private fun httpsUrl(raw: String): String? {
     return try {
-        requireHttps(url).toString()
+        requireHttps(raw).toString()
     } catch (_: RemoteConfigException) {
         null
     }
+}
+
+private fun decodeProfileUrl(payload: String): String? {
+    val bytes = decodeUrlBase64(payload) ?: return null
+    return httpsUrl(bytes.toString(Charsets.UTF_8))
+}
+
+private const val URL_BASE64_ALPHABET =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+
+private fun encodeUrlBase64(bytes: ByteArray): String {
+    val out = StringBuilder((bytes.size * 4 + 2) / 3)
+    var index = 0
+    while (index + 2 < bytes.size) {
+        val value = ((bytes[index].toInt() and 0xFF) shl 16) or
+            ((bytes[index + 1].toInt() and 0xFF) shl 8) or
+            (bytes[index + 2].toInt() and 0xFF)
+        out.append(URL_BASE64_ALPHABET[(value shr 18) and 63])
+        out.append(URL_BASE64_ALPHABET[(value shr 12) and 63])
+        out.append(URL_BASE64_ALPHABET[(value shr 6) and 63])
+        out.append(URL_BASE64_ALPHABET[value and 63])
+        index += 3
+    }
+    when (bytes.size - index) {
+        1 -> {
+            val value = (bytes[index].toInt() and 0xFF) shl 16
+            out.append(URL_BASE64_ALPHABET[(value shr 18) and 63])
+            out.append(URL_BASE64_ALPHABET[(value shr 12) and 63])
+        }
+        2 -> {
+            val value = ((bytes[index].toInt() and 0xFF) shl 16) or
+                ((bytes[index + 1].toInt() and 0xFF) shl 8)
+            out.append(URL_BASE64_ALPHABET[(value shr 18) and 63])
+            out.append(URL_BASE64_ALPHABET[(value shr 12) and 63])
+            out.append(URL_BASE64_ALPHABET[(value shr 6) and 63])
+        }
+    }
+    return out.toString()
+}
+
+private fun decodeUrlBase64(text: String): ByteArray? {
+    val trimmed = text.trim()
+    val body = trimmed.trimEnd('=')
+    val padding = trimmed.length - body.length
+    if (body.isEmpty() || padding > 2 || body.length % 4 == 1) return null
+    val expectedPadding = when (body.length % 4) {
+        0 -> 0
+        2 -> 2
+        3 -> 1
+        else -> return null
+    }
+    if (padding != 0 && padding != expectedPadding) return null
+
+    val out = ByteArrayOutputStream(body.length * 3 / 4)
+    var buffer = 0
+    var bits = 0
+    for (char in body) {
+        val value = when (char) {
+            in 'A'..'Z' -> char - 'A'
+            in 'a'..'z' -> char - 'a' + 26
+            in '0'..'9' -> char - '0' + 52
+            '-', '+' -> 62
+            '_', '/' -> 63
+            else -> return null
+        }
+        buffer = (buffer shl 6) or value
+        bits += 6
+        if (bits >= 8) {
+            bits -= 8
+            out.write((buffer shr bits) and 0xFF)
+            buffer = if (bits == 0) 0 else buffer and ((1 shl bits) - 1)
+        }
+    }
+    if (bits > 0 && (buffer and ((1 shl bits) - 1)) != 0) return null
+    return out.toByteArray()
 }
 
 internal fun requireHttps(raw: String): URI {
