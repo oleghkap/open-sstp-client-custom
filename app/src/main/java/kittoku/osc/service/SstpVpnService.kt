@@ -127,8 +127,10 @@ internal class SstpVpnService : VpnService() {
                 jobConnect = null
                 reconnectJob?.cancel()
                 connectJob?.cancel()
+                setRootState(false)
+                stopForeground(true)
 
-                // Join off the main thread. The connect job can be blocked in a download.
+                // The download coroutine returns as soon as it is cancelled, then the tunnel is closed.
                 scope.launch {
                     reconnectJob?.join()
                     connectJob?.join()

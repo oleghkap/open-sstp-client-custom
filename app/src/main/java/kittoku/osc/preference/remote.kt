@@ -156,6 +156,7 @@ private suspend fun downloadAndApply(context: Context, prefs: SharedPreferences)
         }
 
         val profile = downloadRemoteProfile(url)
+        coroutineContext.ensureActive()
 
         if (applyPresentSettings(profile, prefs)) {
             RemoteConfigResult.Applied
@@ -184,17 +185,28 @@ internal suspend fun downloadRemoteProfile(url: String): Profile {
 }
 
 internal suspend fun <T> blockingCall(abort: () -> Unit, block: () -> T): T {
+    // HttpURLConnection keeps a read blocked until its timeout. Run that work on
+    // another thread so cancelling this coroutine releases the caller immediately.
     return suspendCancellableCoroutine { continuation ->
+        val worker = Thread {
+            val result = runCatching(block)
+            if (!continuation.isActive) return@Thread
+            try {
+                continuation.resumeWith(result)
+            } catch (_: IllegalStateException) {
+                // The coroutine was cancelled after the check above.
+            }
+        }
+        worker.isDaemon = true
+        worker.name = "osc-remote-config"
         continuation.invokeOnCancellation {
             try {
                 abort()
             } catch (_: Exception) {
             }
+            worker.interrupt()
         }
-        val result = runCatching(block)
-        if (continuation.isActive) {
-            continuation.resumeWith(result)
-        }
+        worker.start()
     }
 }
 

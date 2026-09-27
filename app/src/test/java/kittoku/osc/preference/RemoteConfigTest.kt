@@ -188,17 +188,19 @@ class RemoteConfigTest {
     }
 
     @Test(timeout = 5_000)
-    fun cancelledBlockingCallAbortsTheWait() = runBlocking {
+    fun cancelledBlockingCallReturnsWhileTheWorkIsStuck() = runBlocking {
         val started = CountDownLatch(1)
         val aborted = CountDownLatch(1)
-        val release = CountDownLatch(1)
+        val release = java.util.concurrent.atomic.AtomicBoolean(false)
         val job = launch(Dispatchers.IO) {
-            blockingCall({
-                aborted.countDown()
-                release.countDown()
-            }) {
+            blockingCall({ aborted.countDown() }) {
                 started.countDown()
-                assertTrue(release.await(4, TimeUnit.SECONDS))
+                while (!release.get()) {
+                    try {
+                        Thread.sleep(60_000)
+                    } catch (_: InterruptedException) {
+                    }
+                }
             }
         }
 
@@ -206,6 +208,7 @@ class RemoteConfigTest {
         val startedAt = System.nanoTime()
         job.cancelAndJoin()
         val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+        release.set(true)
         assertTrue(aborted.await(1, TimeUnit.SECONDS))
         assertTrue("cancel took ${elapsedMs}ms", elapsedMs < 1_000)
     }
