@@ -181,19 +181,6 @@ private fun isHttpsRemoteConfigUrl(value: String): Boolean {
     }
 }
 
-internal fun profileFromRemoteLink(downloaded: Profile?, linkUrl: String): Profile {
-    val profile = downloaded ?: Profile()
-    val fileUrl = profile.stringSetting[OscPrefKey.REMOTE_CONFIG_URL.name]?.trim().orEmpty()
-    profile.stringSetting[OscPrefKey.REMOTE_CONFIG_URL.name] =
-        if (isHttpsRemoteConfigUrl(fileUrl)) fileUrl else linkUrl
-    profile.booleanSetting[OscPrefKey.REMOTE_CONFIG_ENABLED.name] = true
-    return profile
-}
-
-internal fun storeNamedProfile(prefs: SharedPreferences, name: String, profile: Profile) {
-    prefs.edit().putString(PROFILE_KEY_HEADER + name, Json.encodeToString(profile)).apply()
-}
-
 internal fun applyPresentSettings(profile: Profile, prefs: SharedPreferences): Boolean {
     val writes = remoteSettingWrites(profile)
     if (writes.isEmpty()) return false

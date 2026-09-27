@@ -29,7 +29,6 @@
 
         <activity
             android:exported="true"
-            android:launchMode="singleTop"
             android:name=".activity.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -37,12 +36,6 @@
             </intent-filter>
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:host="profile" android:scheme="osc" />
             </intent-filter>
         </activity>
 
