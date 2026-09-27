@@ -68,6 +68,7 @@ internal class SstpVpnService : VpnService() {
 
     internal var logWriter: LogWriter? = null
     private val connectGate = ClientStartGate<Controller>()
+    private val reconnectPermit = ReconnectPermit()
 
     private var jobReconnect: Job? = null
     private var jobConnect: Job? = null
@@ -106,8 +107,9 @@ internal class SstpVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         return when (intent?.action) {
             ACTION_VPN_CONNECT -> {
+                // Drop a reconnect the previous session may still be about to publish.
+                armReconnect()
                 val generation = connectGate.invalidate { it.abandon() }
-                jobReconnect?.cancel()
                 jobConnect?.cancel()
 
                 beForegrounded()
@@ -118,12 +120,13 @@ internal class SstpVpnService : VpnService() {
             }
 
             else -> {
+                // Invalidate reconnect before touching the client. An in-flight
+                // kill may already hold the controller lock; disconnect() then
+                // does nothing, and that kill must not schedule another attempt.
+                val reconnectJob = stopReconnect()
                 val generation = connectGate.invalidate { it.disconnect(closeService = false) }
-                val reconnectJob = jobReconnect
                 val connectJob = jobConnect
-                jobReconnect = null
                 jobConnect = null
-                reconnectJob?.cancel()
                 connectJob?.cancel()
                 setRootState(false)
                 stopForeground(true)
@@ -221,30 +224,62 @@ internal class SstpVpnService : VpnService() {
         logWriter = LogWriter(stream)
     }
 
-    internal fun launchJobReconnect() {
+    internal fun reconnectEpoch(): Int = reconnectPermit.capture()
+
+    internal fun isReconnectCurrent(epoch: Int): Boolean = reconnectPermit.isCurrent(epoch)
+
+    // Caller must already hold the reconnect permit lock: the epoch move and this
+    // cancel have to be one decision, or a kill can publish a job in between.
+    private fun cancelAssignedReconnect(): Job? {
+        val job = jobReconnect
+        jobReconnect = null
+        job?.cancel()
+        cancelNotification(NOTIFICATION_RECONNECT_ID)
+        return job
+    }
+
+    private fun armReconnect() {
+        reconnectPermit.arm { cancelAssignedReconnect() }
+    }
+
+    private fun stopReconnect(): Job? {
+        return reconnectPermit.suppress { cancelAssignedReconnect() }
+    }
+
+    internal fun launchJobReconnect(epoch: Int) {
+        // Read the connect generation before taking the reconnect lock. Disconnect
+        // captures the epoch while it already holds the connect lock, so taking
+        // that lock again here could deadlock.
         val generation = connectGate.generation
-        jobReconnect = scope.launch {
-            try {
-                getIntPrefValue(OscPrefKey.RECONNECTION_LIFE, prefs).also {
-                    val life = it - 1
-                    setIntPrefValue(life, OscPrefKey.RECONNECTION_LIFE, prefs)
+        reconnectPermit.runIfCurrent(epoch) {
+            jobReconnect = scope.launch {
+                try {
+                    val message = reconnectPermit.runIfCurrent(epoch) {
+                        val life = getIntPrefValue(OscPrefKey.RECONNECTION_LIFE, prefs) - 1
+                        setIntPrefValue(life, OscPrefKey.RECONNECTION_LIFE, prefs)
+                        val text = getString(R.string.notification_reconnect, life)
+                        notifyMessage(text, NOTIFICATION_RECONNECT_ID, NOTIFICATION_RECONNECT_CHANNEL)
+                        text
+                    } ?: return@launch
 
-                    val message = getString(R.string.notification_reconnect, life)
-                    notifyMessage(message, NOTIFICATION_RECONNECT_ID, NOTIFICATION_RECONNECT_CHANNEL)
                     logWriter?.report(message)
+
+                    delay(getIntPrefValue(OscPrefKey.RECONNECTION_INTERVAL, prefs) * 1000L)
+
+                    if (!reconnectPermit.isCurrent(epoch)) return@launch
+                    openClient(generation, freshSession = false)
+                } catch (_: CancellationException) {
+                } catch (_: Exception) {
+                    if (!reconnectPermit.isCurrent(epoch)) return@launch
+                    if (generation != connectGate.generation) return@launch
+                    notifyError(getString(R.string.error_remote_config_network))
+                    setRootState(false)
+                    close()
+                } finally {
+                    if (reconnectPermit.isCurrent(epoch)) {
+                        cancelNotification(NOTIFICATION_RECONNECT_ID)
+                    }
                 }
-
-                delay(getIntPrefValue(OscPrefKey.RECONNECTION_INTERVAL, prefs) * 1000L)
-
-                openClient(generation, freshSession = false)
-            } catch (_: CancellationException) {
-            } catch (_: Exception) {
-                if (generation != connectGate.generation) return@launch
-                notifyError(getString(R.string.error_remote_config_network))
-                setRootState(false)
-                close()
-            } finally {
-                cancelNotification(NOTIFICATION_RECONNECT_ID)
             }
         }
     }

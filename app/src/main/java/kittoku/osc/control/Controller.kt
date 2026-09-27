@@ -273,6 +273,11 @@ internal class Controller(internal val bridge: SharedBridge) {
     ) {
         if (!mutex.tryLock()) return
 
+        // Captured before cleanup waits on the network. Disconnect and a newer
+        // connect move this epoch, so this shutdown must not reconnect or close
+        // the service on their behalf.
+        val reconnectEpoch = bridge.service.reconnectEpoch()
+
         bridge.service.scope.launch {
             observer?.close()
 
@@ -284,8 +289,8 @@ internal class Controller(internal val bridge: SharedBridge) {
             closeTerminals()
 
             if (isReconnectionRequested && isReconnectionAvailable) {
-                bridge.service.launchJobReconnect()
-            } else if (closeService) {
+                bridge.service.launchJobReconnect(reconnectEpoch)
+            } else if (closeService && bridge.service.isReconnectCurrent(reconnectEpoch)) {
                 bridge.service.close()
             }
         }
