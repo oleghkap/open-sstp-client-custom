@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit
 
 class RemoteConfigTest {
     @Test
-    fun partialJsonWritesOnlyPresentKeys() {
+    fun missingKeysAreResetToDefaults() {
         val profile = decodeRemoteProfile(
             """
             {
@@ -30,13 +30,13 @@ class RemoteConfigTest {
 
         val writes = remoteSettingWrites(profile)
 
-        assertEquals(
-            listOf(
-                RemoteSettingWrite.IntVal(OscPrefKey.SSL_PORT, 8443),
-                RemoteSettingWrite.Str(OscPrefKey.HOME_HOSTNAME, "vpn.example.com"),
-            ),
-            writes,
-        )
+        assertEquals(RemoteSettingWrite.Str(OscPrefKey.HOME_HOSTNAME, "vpn.example.com"), writeFor(writes, OscPrefKey.HOME_HOSTNAME))
+        assertEquals(RemoteSettingWrite.IntVal(OscPrefKey.SSL_PORT, 8443), writeFor(writes, OscPrefKey.SSL_PORT))
+        assertEquals(RemoteSettingWrite.Str(OscPrefKey.HOME_PASSWORD, ""), writeFor(writes, OscPrefKey.HOME_PASSWORD))
+        assertEquals(RemoteSettingWrite.Bool(OscPrefKey.SSL_DO_VERIFY, true), writeFor(writes, OscPrefKey.SSL_DO_VERIFY))
+        assertEquals(null, writeFor(writes, OscPrefKey.ROOT_STATE))
+        assertEquals(null, writeFor(writes, OscPrefKey.RECONNECTION_LIFE))
+        assertEquals(null, writeFor(writes, OscPrefKey.SSL_CERT_DIR))
     }
 
     @Test
@@ -59,14 +59,20 @@ class RemoteConfigTest {
             uriSetting = mutableMapOf(OscPrefKey.SSL_CERT_DIR.name to "content://certs"),
         )
 
+        val writes = remoteSettingWrites(profile)
+
+        assertEquals(RemoteSettingWrite.Bool(OscPrefKey.REMOTE_CONFIG_ENABLED, true), writeFor(writes, OscPrefKey.REMOTE_CONFIG_ENABLED))
+        assertEquals(RemoteSettingWrite.Str(OscPrefKey.HOME_USERNAME, "alice"), writeFor(writes, OscPrefKey.HOME_USERNAME))
         assertEquals(
-            listOf(
-                RemoteSettingWrite.Bool(OscPrefKey.REMOTE_CONFIG_ENABLED, true),
-                RemoteSettingWrite.Str(OscPrefKey.HOME_USERNAME, "alice"),
-                RemoteSettingWrite.Str(OscPrefKey.REMOTE_CONFIG_URL, "https://vpn.example.com/config.json"),
-            ),
-            remoteSettingWrites(profile),
+            RemoteSettingWrite.Str(OscPrefKey.REMOTE_CONFIG_URL, "https://vpn.example.com/config.json"),
+            writeFor(writes, OscPrefKey.REMOTE_CONFIG_URL),
         )
+        assertEquals(RemoteSettingWrite.Str(OscPrefKey.HOME_PASSWORD, ""), writeFor(writes, OscPrefKey.HOME_PASSWORD))
+        assertEquals(null, writeFor(writes, OscPrefKey.ROOT_STATE))
+        assertEquals(null, writeFor(writes, OscPrefKey.RECONNECTION_LIFE))
+        assertEquals(null, writeFor(writes, OscPrefKey.HOME_STATUS))
+        assertEquals(null, writeFor(writes, OscPrefKey.REMOTE_CONFIG_STATUS))
+        assertEquals(null, writeFor(writes, OscPrefKey.SSL_CERT_DIR))
     }
 
     @Test
@@ -78,10 +84,10 @@ class RemoteConfigTest {
             ),
         )
 
-        assertEquals(
-            listOf(RemoteSettingWrite.Str(OscPrefKey.HOME_HOSTNAME, "vpn.example.com")),
-            remoteSettingWrites(profile),
-        )
+        val writes = remoteSettingWrites(profile)
+
+        assertEquals(RemoteSettingWrite.Str(OscPrefKey.HOME_HOSTNAME, "vpn.example.com"), writeFor(writes, OscPrefKey.HOME_HOSTNAME))
+        assertEquals(null, writeFor(writes, OscPrefKey.REMOTE_CONFIG_URL))
     }
 
     @Test
@@ -91,8 +97,8 @@ class RemoteConfigTest {
         )
 
         assertEquals(
-            listOf(RemoteSettingWrite.Str(OscPrefKey.REMOTE_CONFIG_URL, "")),
-            remoteSettingWrites(profile),
+            RemoteSettingWrite.Str(OscPrefKey.REMOTE_CONFIG_URL, ""),
+            writeFor(remoteSettingWrites(profile), OscPrefKey.REMOTE_CONFIG_URL),
         )
     }
 
@@ -103,8 +109,8 @@ class RemoteConfigTest {
         )
 
         assertEquals(
-            listOf(RemoteSettingWrite.Str(OscPrefKey.HOME_PASSWORD, "")),
-            remoteSettingWrites(profile),
+            RemoteSettingWrite.Str(OscPrefKey.HOME_PASSWORD, ""),
+            writeFor(remoteSettingWrites(profile), OscPrefKey.HOME_PASSWORD),
         )
     }
 
@@ -117,8 +123,8 @@ class RemoteConfigTest {
         assertTrue(encoded.contains("HOME_HOSTNAME"))
         val writes = remoteSettingWrites(decodeRemoteProfile(encoded.toByteArray()))
         assertEquals(
-            listOf(RemoteSettingWrite.Str(OscPrefKey.HOME_HOSTNAME, "vpn.example.com")),
-            writes,
+            RemoteSettingWrite.Str(OscPrefKey.HOME_HOSTNAME, "vpn.example.com"),
+            writeFor(writes, OscPrefKey.HOME_HOSTNAME),
         )
     }
 
@@ -129,19 +135,17 @@ class RemoteConfigTest {
         )
 
         assertEquals(
-            listOf(RemoteSettingWrite.Str(OscPrefKey.HOME_HOSTNAME, "vpn.example.com")),
-            remoteSettingWrites(profile),
+            RemoteSettingWrite.Str(OscPrefKey.HOME_HOSTNAME, "vpn.example.com"),
+            writeFor(remoteSettingWrites(profile), OscPrefKey.HOME_HOSTNAME),
         )
     }
 
     @Test
     fun utf8BomIsAccepted() {
         val body = "\uFEFF{\"stringSetting\":{\"HOME_HOSTNAME\":\"vpn.example.com\"}}".toByteArray()
-        val writes = remoteSettingWrites(decodeRemoteProfile(body))
-
         assertEquals(
-            listOf(RemoteSettingWrite.Str(OscPrefKey.HOME_HOSTNAME, "vpn.example.com")),
-            writes,
+            RemoteSettingWrite.Str(OscPrefKey.HOME_HOSTNAME, "vpn.example.com"),
+            writeFor(remoteSettingWrites(decodeRemoteProfile(body)), OscPrefKey.HOME_HOSTNAME),
         )
     }
 
@@ -224,6 +228,10 @@ class RemoteConfigTest {
         } catch (error: RemoteConfigException) {
             assertEquals(RemoteConfigFailure.TOO_LARGE, error.reason)
         }
+    }
+
+    private fun writeFor(writes: List<RemoteSettingWrite>, key: OscPrefKey): RemoteSettingWrite? {
+        return writes.find { it.key == key }
     }
 
     private fun expectFailure(reason: RemoteConfigFailure, block: () -> Unit) {

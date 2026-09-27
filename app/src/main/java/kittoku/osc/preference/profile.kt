@@ -127,40 +127,36 @@ internal sealed class RemoteSettingWrite {
     data class StrSet(override val key: OscPrefKey, val value: Set<String>) : RemoteSettingWrite()
 }
 
-// Only keys present in the profile are returned. Missing keys are left as they are.
+// Every portable setting is written. A key missing from the file returns to its default.
 // uriSetting is ignored: certificate and log directories are paths on this device.
 internal fun remoteSettingWrites(profile: Profile): List<RemoteSettingWrite> {
-    val keys = OscPrefKey.entries.associateBy { it.name }
     val writes = mutableListOf<RemoteSettingWrite>()
 
-    profile.booleanSetting.forEach { (name, value) ->
-        val key = keys[name] ?: return@forEach
-        if (key !in DEFAULT_BOOLEAN_MAP || key in REMOTE_CONFIG_BLOCKED_KEYS) return@forEach
-        writes.add(RemoteSettingWrite.Bool(key, value))
+    DEFAULT_BOOLEAN_MAP.forEach { (key, default) ->
+        if (key in REMOTE_CONFIG_BLOCKED_KEYS) return@forEach
+        writes.add(RemoteSettingWrite.Bool(key, profile.booleanSetting[key.name] ?: default))
     }
 
-    profile.intSetting.forEach { (name, value) ->
-        val key = keys[name] ?: return@forEach
-        if (key !in DEFAULT_INT_MAP || key in REMOTE_CONFIG_BLOCKED_KEYS) return@forEach
-        writes.add(RemoteSettingWrite.IntVal(key, value))
+    DEFAULT_INT_MAP.forEach { (key, default) ->
+        if (key in REMOTE_CONFIG_BLOCKED_KEYS) return@forEach
+        writes.add(RemoteSettingWrite.IntVal(key, profile.intSetting[key.name] ?: default))
     }
 
-    profile.stringSetting.forEach { (name, value) ->
-        val key = keys[name] ?: return@forEach
-        if (key !in DEFAULT_STRING_MAP || key in REMOTE_CONFIG_BLOCKED_KEYS) return@forEach
-        if (key == OscPrefKey.REMOTE_CONFIG_URL) {
-            val url = value.trim()
+    DEFAULT_STRING_MAP.forEach { (key, default) ->
+        if (key in REMOTE_CONFIG_BLOCKED_KEYS) return@forEach
+        val raw = profile.stringSetting[key.name]
+        if (key == OscPrefKey.REMOTE_CONFIG_URL && raw != null) {
+            val url = raw.trim()
             if (!isProfileRemoteConfigUrl(url)) return@forEach
             writes.add(RemoteSettingWrite.Str(key, url))
             return@forEach
         }
-        writes.add(RemoteSettingWrite.Str(key, value))
+        writes.add(RemoteSettingWrite.Str(key, raw ?: default))
     }
 
-    profile.setSetting.forEach { (name, value) ->
-        val key = keys[name] ?: return@forEach
-        if (key !in DEFAULT_SET_MAP || key in REMOTE_CONFIG_BLOCKED_KEYS) return@forEach
-        writes.add(RemoteSettingWrite.StrSet(key, value))
+    DEFAULT_SET_MAP.forEach { (key, default) ->
+        if (key in REMOTE_CONFIG_BLOCKED_KEYS) return@forEach
+        writes.add(RemoteSettingWrite.StrSet(key, profile.setSetting[key.name] ?: default))
     }
 
     return writes

@@ -84,7 +84,7 @@
     <string name="summary_no_protocol">[No Protocol Selected]</string>
     <string name="summary_no_app_allowed">[No App Allowed]</string>
     <string name="summary_no_app_disallowed">[No App Disallowed]</string>
-    <string name="summary_remote_config">On startup and before each connection, download a profile JSON and apply only the values it contains. An active connection is not interrupted. The URL is stored in the profile.</string>
+    <string name="summary_remote_config">On startup and before each connection, download a profile JSON and replace the saved settings with it. Values missing from the file return to their defaults. An active connection is not interrupted. The URL is stored in the profile.</string>
     <string name="summary_remote_config_never">Not checked yet</string>
 
     <string name="dialog_dns_notice">NOTICE: packets associated with this address is routed to the VPN tunnel</string>
@@ -95,7 +95,7 @@
     <string name="dialog_save_profile">Enter the profile\'s name.\nIf blank, the hostname will be used.\nIf duplicated, the profile will be overwritten.</string>
     <string name="dialog_export_warning">Password will be also exported as plain text. If you don\'t want that, blank Password before exporting.</string>
     <string name="dialog_reload_confirm">Are you sure to reload the default settings?</string>
-    <string name="dialog_remote_config_warning">Use the same JSON as Export Profile, and serve it over HTTPS. A password in the file is plain text. Values that are not in the file stay as they are. This URL is saved and loaded with the profile. If the file contains a new URL, the next download uses it.</string>
+    <string name="dialog_remote_config_warning">Use the same JSON as Export Profile, and serve it over HTTPS. A password in the file is plain text. The file replaces the saved settings. Values that are not in the file return to their defaults. Certificate and log folders on this device stay as they are. This URL is saved and loaded with the profile. If the file contains a new URL, the next download uses it.</string>
 
     <string name="action_save">SAVE</string>
     <string name="action_cancel">CANCEL</string>

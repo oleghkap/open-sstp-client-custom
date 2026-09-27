@@ -84,7 +84,7 @@
     <string name="summary_no_protocol">[Ningún protocolo seleccionado]</string>
     <string name="summary_no_app_allowed">[Ninguna aplicación permitida]</string>
     <string name="summary_no_app_disallowed">[Ninguna aplicación prohibida]</string>
-    <string name="summary_remote_config">Al iniciar y antes de cada conexión, descarga un JSON de perfil y aplica solo los valores que contiene. Una conexión activa no se interrumpe. La URL se guarda en el perfil.</string>
+    <string name="summary_remote_config">Al iniciar y antes de cada conexión, descarga un JSON de perfil y sustituye los ajustes guardados. Los valores que no estén en el archivo vuelven a sus valores predeterminados. Una conexión activa no se interrumpe. La URL se guarda en el perfil.</string>
     <string name="summary_remote_config_never">Aún no se ha comprobado</string>
 
     <string name="dialog_dns_notice">AVISO: los paquetes asociados a esta dirección se enrutan por el túnel VPN</string>
@@ -95,7 +95,7 @@
     <string name="dialog_save_profile">Introduzca el nombre del perfil.\nSi se deja en blanco, se usará el nombre de host.\nSi ya existe, el perfil se sobrescribirá.</string>
     <string name="dialog_export_warning">La contraseña también se exportará en texto sin formato. Si no lo desea, bórrela antes de exportar.</string>
     <string name="dialog_reload_confirm">¿Restablecer los ajustes predeterminados?</string>
-    <string name="dialog_remote_config_warning">Use el mismo JSON que crea «Exportar perfil» y sírvalo por HTTPS. La contraseña en el archivo está en texto sin formato. Los valores que no estén en el archivo no cambian. Esta URL se guarda y se carga con el perfil. Si el archivo contiene una URL nueva, la siguiente descarga la usa.</string>
+    <string name="dialog_remote_config_warning">Use el mismo JSON que crea «Exportar perfil» y sírvalo por HTTPS. La contraseña en el archivo está en texto sin formato. El archivo sustituye los ajustes guardados. Los valores que no estén en el archivo vuelven a sus valores predeterminados. Las carpetas de certificados y de registro de este dispositivo no cambian. Esta URL se guarda y se carga con el perfil. Si el archivo contiene una URL nueva, la siguiente descarga la usa.</string>
 
     <string name="action_save">GUARDAR</string>
     <string name="action_cancel">CANCELAR</string>
