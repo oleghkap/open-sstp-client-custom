@@ -51,6 +51,9 @@ internal enum class OscPrefKey {
     RECONNECTION_LIFE,
     LOG_DO_SAVE_LOG,
     LOG_DIR,
+    REMOTE_CONFIG_ENABLED,
+    REMOTE_CONFIG_URL,
+    REMOTE_CONFIG_STATUS,
 }
 
 
@@ -73,7 +76,8 @@ internal val DEFAULT_BOOLEAN_MAP = mapOf(
     OscPrefKey.ROUTE_DO_ENABLE_APP_BASED_RULE to false,
     OscPrefKey.ROUTE_DO_SHOW_BACKGROUND_APPS to false,
     OscPrefKey.RECONNECTION_ENABLED to false,
-    OscPrefKey.LOG_DO_SAVE_LOG to false
+    OscPrefKey.LOG_DO_SAVE_LOG to false,
+    OscPrefKey.REMOTE_CONFIG_ENABLED to false,
 )
 
 internal val DEFAULT_INT_MAP = mapOf(
@@ -105,6 +109,8 @@ internal val DEFAULT_STRING_MAP = mapOf(
     OscPrefKey.DNS_CUSTOM_ADDRESS to EMPTY_TEXT,
     OscPrefKey.ROUTE_CUSTOM_ROUTES to EMPTY_TEXT,
     OscPrefKey.ROUTE_APP_LIST_TYPE to LIST_TYPE_ALLOWED,
+    OscPrefKey.REMOTE_CONFIG_URL to EMPTY_TEXT,
+    OscPrefKey.REMOTE_CONFIG_STATUS to EMPTY_TEXT,
 )
 
 private val EMPTY_SET = setOf<String>()

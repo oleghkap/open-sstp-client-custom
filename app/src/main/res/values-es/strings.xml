@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Open SSTP Client</string>
+
+    <string name="tab_home">INICIO</string>
+    <string name="tab_setting">AJUSTES</string>
+
+    <string name="menu_load_profile">Cargar perfil</string>
+    <string name="menu_save_profile">Guardar perfil</string>
+    <string name="menu_import_profile">Importar perfil</string>
+    <string name="menu_export_profile">Exportar perfil</string>
+    <string name="menu_reload_defaults">Restablecer valores</string>
+    <string name="menu_select_all">Seleccionar todo</string>
+    <string name="menu_unselect_all">Deseleccionar todo</string>
+
+    <string name="title_profiles">Perfiles</string>
+    <string name="title_apps">Aplicaciones permitidas y prohibidas</string>
+
+    <string name="category_ssl">Capa SSL</string>
+    <string name="category_proxy">Proxy HTTP</string>
+    <string name="category_ppp">Capa PPP</string>
+    <string name="category_ppp_auth">Protocolo de autenticación PPP</string>
+    <string name="category_ppp_network">Protocolo de red PPP</string>
+    <string name="category_dns">Servidor DNS</string>
+    <string name="category_routing">Enrutamiento</string>
+    <string name="category_reconnection">Reconexión</string>
+    <string name="category_log">Registro</string>
+    <string name="category_remote_config">Configuración remota</string>
+
+    <string name="pref_hostname">Nombre de host</string>
+    <string name="pref_username">Nombre de usuario</string>
+    <string name="pref_password">Contraseña</string>
+    <string name="pref_port">Número de puerto</string>
+    <string name="pref_ssl_version">Versión SSL</string>
+    <string name="pref_verify_hostname">Verificar nombre de host</string>
+    <string name="pref_specify_certs">Especificar certificados de confianza</string>
+    <string name="pref_select_certs">Seleccionar certificados de confianza</string>
+    <string name="pref_enable_selected_suites">Solo los conjuntos de cifrado seleccionados</string>
+    <string name="pref_cipher_suites">Seleccionar conjuntos de cifrado</string>
+    <string name="pref_custom_sni">Usar SNI personalizado</string>
+    <string name="pref_custom_sni_hostname">Nombre de host SNI</string>
+    <string name="pref_use_proxy">Usar proxy HTTP</string>
+    <string name="pref_proxy_hostname">Nombre de host del proxy</string>
+    <string name="pref_proxy_port">Puerto del servidor proxy</string>
+    <string name="pref_proxy_username">Usuario del proxy (opcional)</string>
+    <string name="pref_proxy_password">Contraseña del proxy (opcional)</string>
+    <string name="pref_mru">MRU</string>
+    <string name="pref_mtu">MTU</string>
+    <string name="pref_auth_protocols">Seleccionar protocolos de autenticación</string>
+    <string name="pref_auth_timeout">Tiempo de espera (segundos)</string>
+    <string name="pref_enable_ipv4">Activar IPv4</string>
+    <string name="pref_request_static_ipv4">Solicitar dirección IPv4 estática</string>
+    <string name="pref_static_ipv4_address">Dirección IPv4 estática</string>
+    <string name="pref_enable_ipv6">Activar IPv6</string>
+    <string name="pref_request_dns">Solicitar dirección del servidor DNS</string>
+    <string name="pref_custom_dns">Usar servidor DNS personalizado</string>
+    <string name="pref_custom_dns_address">Dirección del servidor DNS personalizado</string>
+    <string name="pref_default_route">Añadir ruta predeterminada</string>
+    <string name="pref_route_private">Enrutar direcciones privadas y locales únicas</string>
+    <string name="pref_add_custom_routes">Añadir rutas personalizadas</string>
+    <string name="pref_edit_custom_routes">Editar rutas personalizadas</string>
+    <string name="pref_app_based_rule">Activar regla por aplicación</string>
+    <string name="pref_select_apps">Seleccionar aplicaciones permitidas y prohibidas</string>
+    <string name="pref_show_background_apps">Mostrar aplicaciones en segundo plano</string>
+    <string name="pref_list_type">Tipo de lista</string>
+    <string name="pref_reconnection">Activar reconexión</string>
+    <string name="pref_retry_count">Número de reintentos</string>
+    <string name="pref_retry_interval">Intervalo de reintento (segundos)</string>
+    <string name="pref_save_log">Guardar registro</string>
+    <string name="pref_log_dir">Seleccionar carpeta del registro</string>
+    <string name="pref_status">Estado actual</string>
+    <string name="pref_project_page">Ir a la página del proyecto</string>
+    <string name="pref_remote_config">Cargar configuración desde URL</string>
+    <string name="pref_remote_config_url">URL de configuración</string>
+    <string name="pref_remote_config_fetch">Actualizar ahora</string>
+    <string name="pref_remote_config_status">Última comprobación</string>
+
+    <string name="summary_no_value">[Sin valor]</string>
+    <string name="summary_password_entered">[Contraseña introducida]</string>
+    <string name="summary_routes_entered">[Rutas personalizadas introducidas]</string>
+    <string name="summary_no_directory">[Ninguna carpeta seleccionada]</string>
+    <string name="summary_no_connection">[Sin conexión establecida]</string>
+    <string name="summary_no_suite">[Ningún conjunto seleccionado]</string>
+    <string name="summary_no_protocol">[Ningún protocolo seleccionado]</string>
+    <string name="summary_no_app_allowed">[Ninguna aplicación permitida]</string>
+    <string name="summary_no_app_disallowed">[Ninguna aplicación prohibida]</string>
+    <string name="summary_remote_config">Al iniciar y antes de cada conexión, descarga un JSON de perfil y sustituye los ajustes guardados. Los valores que no estén en el archivo vuelven a sus valores predeterminados. Una conexión activa no se interrumpe. La URL se guarda en el perfil.</string>
+    <string name="summary_remote_config_never">Aún no se ha comprobado</string>
+
+    <string name="dialog_dns_notice">AVISO: los paquetes asociados a esta dirección se enrutan por el túnel VPN</string>
+    <string name="ssl_version_default">Predeterminado</string>
+    <string name="list_type_allowed">Aplicaciones permitidas</string>
+    <string name="list_type_disallowed">Aplicaciones prohibidas</string>
+
+    <string name="dialog_save_profile">Introduzca el nombre del perfil.\nSi se deja en blanco, se usará el nombre de host.\nSi ya existe, el perfil se sobrescribirá.</string>
+    <string name="dialog_export_warning">La contraseña también se exportará en texto sin formato. Si no lo desea, bórrela antes de exportar.</string>
+    <string name="dialog_reload_confirm">¿Restablecer los ajustes predeterminados?</string>
+    <string name="dialog_remote_config_warning">Use el mismo JSON que crea «Exportar perfil» y sírvalo por HTTPS. La contraseña en el archivo está en texto sin formato. El archivo sustituye los ajustes guardados. Los valores que no estén en el archivo vuelven a sus valores predeterminados. Las carpetas de certificados y de registro de este dispositivo no cambian. Esta URL se guarda y se carga con el perfil. Si el archivo contiene una URL nueva, la siguiente descarga la usa.</string>
+
+    <string name="action_save">GUARDAR</string>
+    <string name="action_cancel">CANCELAR</string>
+    <string name="action_proceed">CONTINUAR</string>
+    <string name="action_yes">SÍ</string>
+    <string name="action_no">NO</string>
+    <string name="action_load">CARGAR</string>
+    <string name="action_delete">ELIMINAR</string>
+    <string name="action_disconnect">DESCONECTAR</string>
+
+    <string name="toast_import_failed">ERROR AL IMPORTAR</string>
+    <string name="toast_profile_imported">PERFIL IMPORTADO</string>
+    <string name="toast_profile_exported">PERFIL EXPORTADO</string>
+    <string name="toast_profile_saved">PERFIL GUARDADO</string>
+    <string name="toast_defaults_reloaded">VALORES RESTABLECIDOS</string>
+    <string name="toast_invalid_profile">PERFIL NO VÁLIDO</string>
+    <string name="toast_profile_loaded">PERFIL CARGADO</string>
+    <string name="toast_profile_deleted">PERFIL ELIMINADO</string>
+    <string name="toast_invalid_setting">AJUSTE NO VÁLIDO: %1$s</string>
+    <string name="toast_remote_config_applied">CONFIGURACIÓN ACTUALIZADA</string>
+    <string name="toast_remote_config_unchanged">CONFIGURACIÓN SIN CAMBIOS</string>
+
+    <string name="error_hostname_missing">Falta el nombre de host</string>
+    <string name="error_port_range">El puerto indicado está fuera del rango 0-65535</string>
+    <string name="error_certs_need_ssl_version">Para especificar certificados de confianza hay que indicar la versión SSL</string>
+    <string name="error_certs_dir_missing">No se ha seleccionado la carpeta de certificados</string>
+    <string name="error_no_cipher_suite">No se ha seleccionado ningún conjunto de cifrado</string>
+    <string name="error_custom_sni_api">El SNI personalizado requiere el nivel de API 24 o superior</string>
+    <string name="error_custom_sni_blank">El nombre de host SNI no puede estar vacío</string>
+    <string name="error_proxy_hostname_missing">Falta el nombre de host del servidor proxy</string>
+    <string name="error_proxy_port_range">El puerto del servidor proxy está fuera del rango 0-65535</string>
+    <string name="error_mru_range">El MRU indicado está fuera del rango %1$d-%2$d</string>
+    <string name="error_mtu_range">El MTU indicado está fuera del rango %1$d-%2$d</string>
+    <string name="error_no_network_protocol">No se ha activado ningún protocolo de red</string>
+    <string name="error_static_ipv4_missing">No se ha indicado una dirección IPv4 estática</string>
+    <string name="error_no_auth_protocol">No se ha seleccionado ningún protocolo de autenticación</string>
+    <string name="error_auth_timeout">El tiempo de espera de la autenticación PPP debe ser de al menos 1 segundo</string>
+    <string name="error_custom_dns_missing">No se ha indicado la dirección del servidor DNS personalizado</string>
+    <string name="error_retry_count">El número de reintentos debe ser un entero positivo</string>
+    <string name="error_log_dir_missing">No se ha seleccionado la carpeta del registro</string>
+    <string name="error_remote_config_url_missing">Falta la URL de configuración</string>
+    <string name="error_remote_config_https">La URL de configuración debe usar HTTPS</string>
+    <string name="error_remote_config_invalid_url">La URL de configuración no es válida</string>
+    <string name="error_remote_config_http">El servidor respondió con HTTP %1$d</string>
+    <string name="error_remote_config_too_large">El archivo de configuración es demasiado grande</string>
+    <string name="error_remote_config_redirect">Demasiadas redirecciones</string>
+    <string name="error_remote_config_invalid_json">El archivo de configuración no es un perfil válido</string>
+    <string name="error_remote_config_network">No se pudo descargar la configuración</string>
+
+    <string name="status_ssl">[Parámetros SSL/TLS]</string>
+    <string name="status_protocol">PROTOCOLO: %1$s</string>
+    <string name="status_suite">CONJUNTO: %1$s</string>
+    <string name="status_assigned_ip">[Dirección IP asignada]</string>
+    <string name="status_dns">[Dirección del servidor DNS]</string>
+    <string name="status_not_specified">No especificada</string>
+    <string name="status_routing">[Enrutamiento]</string>
+    <string name="remote_config_status_applied">Actualizada %1$s</string>
+    <string name="remote_config_status_unchanged">Sin cambios %1$s</string>
+    <string name="remote_config_status_failed">Error %1$s: %2$s</string>
+
+    <string name="profile_summary">[Nombre de host]\n%1$s\n\n[Nombre de usuario]\n%2$s\n\n[Número de puerto]\n%3$s</string>
+
+    <string name="channel_error">Errores</string>
+    <string name="channel_reconnect">Reconexión</string>
+    <string name="channel_disconnect">Desconexión</string>
+    <string name="channel_certificate">Certificado</string>
+    <string name="notification_reconnect">Se intentará reconectar (quedan: %1$d)</string>
+    <string name="notification_cert_title">Puede descargar el certificado no confiable del servidor</string>
+    <string name="notification_cert_text">AVISO: los certificados no confiables pueden dejar el dispositivo vulnerable</string>
+
+    <string name="log_establish">Establecer conexión VPN</string>
+    <string name="log_terminate">Finalizar conexión VPN</string>
+    <string name="notify_log_null_preference">REGISTRO: no se ha definido la carpeta (ERR_NULL_PREFERENCE)</string>
+    <string name="notify_log_null_directory">REGISTRO: la carpeta no está disponible (ERR_NULL_DIRECTORY)</string>
+    <string name="notify_log_null_file">REGISTRO: no se pudo crear el archivo (ERR_NULL_FILE)</string>
+    <string name="notify_log_null_stream">REGISTRO: no se pudo abrir el archivo (ERR_NULL_STREAM)</string>
+
+    <plurals name="summary_suites_selected">
+        <item quantity="one">%d conjunto seleccionado</item>
+        <item quantity="other">%d conjuntos seleccionados</item>
+    </plurals>
+    <plurals name="summary_protocols_selected">
+        <item quantity="one">%d protocolo seleccionado</item>
+        <item quantity="other">%d protocolos seleccionados</item>
+    </plurals>
+    <plurals name="summary_apps_allowed">
+        <item quantity="one">[%d aplicación permitida]</item>
+        <item quantity="other">[%d aplicaciones permitidas]</item>
+    </plurals>
+    <plurals name="summary_apps_disallowed">
+        <item quantity="one">[%d aplicación prohibida]</item>
+        <item quantity="other">[%d aplicaciones prohibidas]</item>
+    </plurals>
+</resources>

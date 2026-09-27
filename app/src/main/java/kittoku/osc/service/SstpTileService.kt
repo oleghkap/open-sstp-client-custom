@@ -92,7 +92,10 @@ internal class SstpTileService : TileService() {
     }
 
     override fun onClick() {
-        if (!isVpnPrepared || checkPreferences(prefs) != null) return
+        if (!isVpnPrepared) return
+
+        val remoteEnabled = getBooleanPrefValue(OscPrefKey.REMOTE_CONFIG_ENABLED, prefs)
+        if (!remoteEnabled && checkPreferences(prefs, this) != null) return
 
         flipTileState()
 

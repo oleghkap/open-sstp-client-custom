@@ -11,6 +11,7 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import kittoku.osc.R
 import kittoku.osc.preference.OscPrefKey
+import kittoku.osc.preference.accessor.getBooleanPrefValue
 import kittoku.osc.preference.checkPreferences
 import kittoku.osc.preference.custom.HomeConnectorPreference
 import kittoku.osc.preference.toastInvalidSetting
@@ -50,9 +51,14 @@ class HomeFragment : PreferenceFragmentCompat() {
         findPreference<HomeConnectorPreference>(OscPrefKey.HOME_CONNECTOR.name)!!.also {
             it.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _, newState ->
                 if (newState == true) {
-                    checkPreferences(preferenceManager.sharedPreferences!!)?.also { message ->
-                        toastInvalidSetting(message, requireContext())
-                        return@OnPreferenceChangeListener false
+                    val prefs = preferenceManager.sharedPreferences!!
+                    // The service downloads the remote profile before reading settings.
+                    // Checking here would reject a hostname that the file is about to fill in.
+                    if (!getBooleanPrefValue(OscPrefKey.REMOTE_CONFIG_ENABLED, prefs)) {
+                        checkPreferences(prefs, requireContext())?.also { message ->
+                            toastInvalidSetting(message, requireContext())
+                            return@OnPreferenceChangeListener false
+                        }
                     }
 
                     VpnService.prepare(requireContext())?.also { intent ->

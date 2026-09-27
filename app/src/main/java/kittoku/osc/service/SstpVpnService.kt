@@ -28,16 +28,19 @@ import kittoku.osc.preference.accessor.getURIPrefValue
 import kittoku.osc.preference.accessor.resetReconnectionLife
 import kittoku.osc.preference.accessor.setBooleanPrefValue
 import kittoku.osc.preference.accessor.setIntPrefValue
+import kittoku.osc.preference.accessor.setStringPrefValue
+import kittoku.osc.preference.checkPreferences
+import kittoku.osc.preference.fetchRemoteConfigIfEnabled
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -64,9 +67,11 @@ internal class SstpVpnService : VpnService() {
     internal lateinit var scope: CoroutineScope
 
     internal var logWriter: LogWriter? = null
-    private var controller: Controller?  = null
+    private val connectGate = ClientStartGate<Controller>()
+    private val reconnectPermit = ReconnectPermit()
 
     private var jobReconnect: Job? = null
+    private var jobConnect: Job? = null
 
     private fun setRootState(state: Boolean) {
         setBooleanPrefValue(state, OscPrefKey.ROOT_STATE, prefs)
@@ -102,40 +107,89 @@ internal class SstpVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         return when (intent?.action) {
             ACTION_VPN_CONNECT -> {
-                controller?.kill(false, null)
+                // Drop a reconnect the previous session may still be about to publish.
+                armReconnect()
+                val generation = connectGate.invalidate { it.abandon() }
+                jobConnect?.cancel()
 
                 beForegrounded()
-                resetReconnectionLife(prefs)
-                if (getBooleanPrefValue(OscPrefKey.LOG_DO_SAVE_LOG, prefs)) {
-                    prepareLogWriter()
-                }
-
-                logWriter?.write("Establish VPN connection")
-
-                initializeClient()
-
                 setRootState(true)
+                jobConnect = scope.launch { connectAfterRemoteConfig(generation) }
 
                 START_STICKY
             }
 
             else -> {
-                // ensure that reconnection has been completely canceled or done
-                runBlocking { jobReconnect?.cancelAndJoin() }
+                // Invalidate reconnect before touching the client. An in-flight
+                // kill may already hold the controller lock; disconnect() then
+                // does nothing, and that kill must not schedule another attempt.
+                val reconnectJob = stopReconnect()
+                val generation = connectGate.invalidate { it.disconnect(closeService = false) }
+                val connectJob = jobConnect
+                jobConnect = null
+                connectJob?.cancel()
+                setRootState(false)
+                stopForeground(true)
 
-                controller?.disconnect()
-                controller = null
-
-                close()
+                // The download coroutine returns as soon as it is cancelled, then the tunnel is closed.
+                scope.launch {
+                    reconnectJob?.join()
+                    connectJob?.join()
+                    if (generation != connectGate.generation) return@launch
+                    close()
+                }
 
                 START_NOT_STICKY
             }
         }
     }
 
-    private fun initializeClient() {
-        controller = Controller(SharedBridge(this)).also {
-            it.launchJobMain()
+    private suspend fun connectAfterRemoteConfig(generation: Int) {
+        try {
+            openClient(generation, freshSession = true)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            if (generation != connectGate.generation) return
+            notifyError(getString(R.string.error_remote_config_network))
+            setRootState(false)
+            close()
+        }
+    }
+
+    private suspend fun openClient(generation: Int, freshSession: Boolean) {
+        fetchRemoteConfigIfEnabled(applicationContext, prefs)
+        coroutineContext.ensureActive()
+        if (generation != connectGate.generation) return
+
+        val error = checkPreferences(prefs, this)
+        if (error != null) {
+            if (generation != connectGate.generation) return
+            setStringPrefValue(error, OscPrefKey.HOME_STATUS, prefs)
+            notifyError(getString(R.string.toast_invalid_setting, error))
+            setRootState(false)
+            close()
+            return
+        }
+
+        coroutineContext.ensureActive()
+        if (generation != connectGate.generation) return
+
+        if (freshSession) {
+            resetReconnectionLife(prefs)
+            if (getBooleanPrefValue(OscPrefKey.LOG_DO_SAVE_LOG, prefs)) {
+                prepareLogWriter()
+            }
+            logWriter?.write(getString(R.string.log_establish))
+        }
+
+        coroutineContext.ensureActive()
+        initializeClient(generation)
+    }
+
+    private fun initializeClient(generation: Int) {
+        connectGate.tryStart(generation) {
+            Controller(SharedBridge(this)).also { it.launchJobMain() }
         }
     }
 
@@ -145,62 +199,100 @@ internal class SstpVpnService : VpnService() {
 
         val prefURI = getURIPrefValue(OscPrefKey.LOG_DIR, prefs)
         if (prefURI == null) {
-            notifyError("LOG: ERR_NULL_PREFERENCE")
+            notifyError(getString(R.string.notify_log_null_preference))
             return
         }
 
         val dirURI = DocumentFile.fromTreeUri(this, prefURI)
         if (dirURI == null) {
-            notifyError("LOG: ERR_NULL_DIRECTORY")
+            notifyError(getString(R.string.notify_log_null_directory))
             return
         }
 
         val fileURI = dirURI.createFile("text/plain", filename)
         if (fileURI == null) {
-            notifyError("LOG: ERR_NULL_FILE")
+            notifyError(getString(R.string.notify_log_null_file))
             return
         }
 
         val stream = contentResolver.openOutputStream(fileURI.uri, "wa")
         if (stream == null) {
-            notifyError("LOG: ERR_NULL_STREAM")
+            notifyError(getString(R.string.notify_log_null_stream))
             return
         }
 
         logWriter = LogWriter(stream)
     }
 
-    internal fun launchJobReconnect() {
-        jobReconnect = scope.launch {
-            try {
-                getIntPrefValue(OscPrefKey.RECONNECTION_LIFE, prefs).also {
-                    val life = it - 1
-                    setIntPrefValue(life, OscPrefKey.RECONNECTION_LIFE, prefs)
+    internal fun reconnectEpoch(): Int = reconnectPermit.capture()
 
-                    val message = "Reconnection will be tried (LIFE = $life)"
-                    notifyMessage(message, NOTIFICATION_RECONNECT_ID, NOTIFICATION_RECONNECT_CHANNEL)
+    internal fun isReconnectCurrent(epoch: Int): Boolean = reconnectPermit.isCurrent(epoch)
+
+    // Caller must already hold the reconnect permit lock: the epoch move and this
+    // cancel have to be one decision, or a kill can publish a job in between.
+    private fun cancelAssignedReconnect(): Job? {
+        val job = jobReconnect
+        jobReconnect = null
+        job?.cancel()
+        cancelNotification(NOTIFICATION_RECONNECT_ID)
+        return job
+    }
+
+    private fun armReconnect() {
+        reconnectPermit.arm { cancelAssignedReconnect() }
+    }
+
+    private fun stopReconnect(): Job? {
+        return reconnectPermit.suppress { cancelAssignedReconnect() }
+    }
+
+    internal fun launchJobReconnect(epoch: Int) {
+        // Read the connect generation before taking the reconnect lock. Disconnect
+        // captures the epoch while it already holds the connect lock, so taking
+        // that lock again here could deadlock.
+        val generation = connectGate.generation
+        reconnectPermit.runIfCurrent(epoch) {
+            jobReconnect = scope.launch {
+                try {
+                    val message = reconnectPermit.runIfCurrent(epoch) {
+                        val life = getIntPrefValue(OscPrefKey.RECONNECTION_LIFE, prefs) - 1
+                        setIntPrefValue(life, OscPrefKey.RECONNECTION_LIFE, prefs)
+                        val text = getString(R.string.notification_reconnect, life)
+                        notifyMessage(text, NOTIFICATION_RECONNECT_ID, NOTIFICATION_RECONNECT_CHANNEL)
+                        text
+                    } ?: return@launch
+
                     logWriter?.report(message)
+
+                    delay(getIntPrefValue(OscPrefKey.RECONNECTION_INTERVAL, prefs) * 1000L)
+
+                    if (!reconnectPermit.isCurrent(epoch)) return@launch
+                    openClient(generation, freshSession = false)
+                } catch (_: CancellationException) {
+                } catch (_: Exception) {
+                    if (!reconnectPermit.isCurrent(epoch)) return@launch
+                    if (generation != connectGate.generation) return@launch
+                    notifyError(getString(R.string.error_remote_config_network))
+                    setRootState(false)
+                    close()
+                } finally {
+                    if (reconnectPermit.isCurrent(epoch)) {
+                        cancelNotification(NOTIFICATION_RECONNECT_ID)
+                    }
                 }
-
-                delay(getIntPrefValue(OscPrefKey.RECONNECTION_INTERVAL, prefs) * 1000L)
-
-                initializeClient()
-            } catch (_: CancellationException) { }
-            finally {
-                cancelNotification(NOTIFICATION_RECONNECT_ID)
             }
         }
     }
 
     private fun beForegrounded() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            arrayOf(
-                NOTIFICATION_ERROR_CHANNEL,
-                NOTIFICATION_RECONNECT_CHANNEL,
-                NOTIFICATION_DISCONNECT_CHANNEL,
-                NOTIFICATION_CERTIFICATE_CHANNEL,
-            ).map {
-                NotificationChannel(it, it, NotificationManager.IMPORTANCE_DEFAULT)
+            listOf(
+                NOTIFICATION_ERROR_CHANNEL to R.string.channel_error,
+                NOTIFICATION_RECONNECT_CHANNEL to R.string.channel_reconnect,
+                NOTIFICATION_DISCONNECT_CHANNEL to R.string.channel_disconnect,
+                NOTIFICATION_CERTIFICATE_CHANNEL to R.string.channel_certificate,
+            ).map { (id, nameRes) ->
+                NotificationChannel(id, getString(nameRes), NotificationManager.IMPORTANCE_DEFAULT)
             }.also {
                 notificationManager.createNotificationChannels(it)
             }
@@ -218,7 +310,7 @@ internal class SstpVpnService : VpnService() {
             it.setOngoing(true)
             it.setAutoCancel(true)
             it.setSmallIcon(R.drawable.ic_baseline_vpn_lock_24)
-            it.addAction(R.drawable.ic_baseline_close_24, "DISCONNECT", pendingIntent)
+            it.addAction(R.drawable.ic_baseline_close_24, getString(R.string.action_disconnect), pendingIntent)
         }
 
         startForeground(NOTIFICATION_DISCONNECT_ID, builder.build())
@@ -259,12 +351,11 @@ internal class SstpVpnService : VpnService() {
     }
 
     override fun onDestroy() {
-        logWriter?.write("Terminate VPN connection")
+        logWriter?.write(getString(R.string.log_terminate))
         logWriter?.close()
         logWriter = null
 
-        controller?.kill(false, null)
-        controller = null
+        connectGate.release()?.kill(false)
 
         scope.cancel()
 

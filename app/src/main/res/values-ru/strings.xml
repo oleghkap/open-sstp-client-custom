@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Open SSTP Client</string>
+
+    <string name="tab_home">ГЛАВНАЯ</string>
+    <string name="tab_setting">НАСТРОЙКИ</string>
+
+    <string name="menu_load_profile">Загрузить профиль</string>
+    <string name="menu_save_profile">Сохранить профиль</string>
+    <string name="menu_import_profile">Импортировать профиль</string>
+    <string name="menu_export_profile">Экспортировать профиль</string>
+    <string name="menu_reload_defaults">Сбросить настройки</string>
+    <string name="menu_select_all">Выбрать все</string>
+    <string name="menu_unselect_all">Снять выбор</string>
+
+    <string name="title_profiles">Профили</string>
+    <string name="title_apps">Разрешённые и запрещённые приложения</string>
+
+    <string name="category_ssl">Уровень SSL</string>
+    <string name="category_proxy">HTTP-прокси</string>
+    <string name="category_ppp">Уровень PPP</string>
+    <string name="category_ppp_auth">Протокол аутентификации PPP</string>
+    <string name="category_ppp_network">Сетевой протокол PPP</string>
+    <string name="category_dns">DNS-сервер</string>
+    <string name="category_routing">Маршрутизация</string>
+    <string name="category_reconnection">Переподключение</string>
+    <string name="category_log">Журнал</string>
+    <string name="category_remote_config">Удалённая конфигурация</string>
+
+    <string name="pref_hostname">Имя хоста</string>
+    <string name="pref_username">Имя пользователя</string>
+    <string name="pref_password">Пароль</string>
+    <string name="pref_port">Номер порта</string>
+    <string name="pref_ssl_version">Версия SSL</string>
+    <string name="pref_verify_hostname">Проверять имя хоста</string>
+    <string name="pref_specify_certs">Указать доверенные сертификаты</string>
+    <string name="pref_select_certs">Выбрать доверенные сертификаты</string>
+    <string name="pref_enable_selected_suites">Только выбранные наборы шифров</string>
+    <string name="pref_cipher_suites">Выбрать наборы шифров</string>
+    <string name="pref_custom_sni">Использовать свой SNI</string>
+    <string name="pref_custom_sni_hostname">Имя хоста SNI</string>
+    <string name="pref_use_proxy">Использовать HTTP-прокси</string>
+    <string name="pref_proxy_hostname">Имя хоста прокси-сервера</string>
+    <string name="pref_proxy_port">Порт прокси-сервера</string>
+    <string name="pref_proxy_username">Имя пользователя прокси (необязательно)</string>
+    <string name="pref_proxy_password">Пароль прокси (необязательно)</string>
+    <string name="pref_mru">MRU</string>
+    <string name="pref_mtu">MTU</string>
+    <string name="pref_auth_protocols">Выбрать протоколы аутентификации</string>
+    <string name="pref_auth_timeout">Таймаут (секунды)</string>
+    <string name="pref_enable_ipv4">Включить IPv4</string>
+    <string name="pref_request_static_ipv4">Запросить статический IPv4-адрес</string>
+    <string name="pref_static_ipv4_address">Статический IPv4-адрес</string>
+    <string name="pref_enable_ipv6">Включить IPv6</string>
+    <string name="pref_request_dns">Запрашивать адрес DNS-сервера</string>
+    <string name="pref_custom_dns">Использовать свой DNS-сервер</string>
+    <string name="pref_custom_dns_address">Адрес своего DNS-сервера</string>
+    <string name="pref_default_route">Добавить маршрут по умолчанию</string>
+    <string name="pref_route_private">Маршрутизировать частные и уникальные локальные адреса</string>
+    <string name="pref_add_custom_routes">Добавить свои маршруты</string>
+    <string name="pref_edit_custom_routes">Изменить свои маршруты</string>
+    <string name="pref_app_based_rule">Включить правило для приложений</string>
+    <string name="pref_select_apps">Выбрать разрешённые и запрещённые приложения</string>
+    <string name="pref_show_background_apps">Показывать фоновые приложения</string>
+    <string name="pref_list_type">Тип списка</string>
+    <string name="pref_reconnection">Включить переподключение</string>
+    <string name="pref_retry_count">Число попыток</string>
+    <string name="pref_retry_interval">Интервал попыток (секунды)</string>
+    <string name="pref_save_log">Сохранять журнал</string>
+    <string name="pref_log_dir">Выбрать каталог журнала</string>
+    <string name="pref_status">Текущее состояние</string>
+    <string name="pref_project_page">Перейти на страницу проекта</string>
+    <string name="pref_remote_config">Загружать конфигурацию по URL</string>
+    <string name="pref_remote_config_url">URL конфигурации</string>
+    <string name="pref_remote_config_fetch">Обновить сейчас</string>
+    <string name="pref_remote_config_status">Последняя проверка</string>
+
+    <string name="summary_no_value">[Значение не задано]</string>
+    <string name="summary_password_entered">[Пароль задан]</string>
+    <string name="summary_routes_entered">[Свои маршруты заданы]</string>
+    <string name="summary_no_directory">[Каталог не выбран]</string>
+    <string name="summary_no_connection">[Соединение не установлено]</string>
+    <string name="summary_no_suite">[Набор не выбран]</string>
+    <string name="summary_no_protocol">[Протокол не выбран]</string>
+    <string name="summary_no_app_allowed">[Нет разрешённых приложений]</string>
+    <string name="summary_no_app_disallowed">[Нет запрещённых приложений]</string>
+    <string name="summary_remote_config">При запуске и перед каждым подключением скачивает JSON профиля и заменяет им сохранённые настройки. Значения, которых нет в файле, возвращаются к значениям по умолчанию. Активное соединение не прерывается. URL хранится в профиле.</string>
+    <string name="summary_remote_config_never">Ещё не проверялась</string>
+
+    <string name="dialog_dns_notice">ВНИМАНИЕ: пакеты для этого адреса направляются в VPN-туннель</string>
+    <string name="ssl_version_default">По умолчанию</string>
+    <string name="list_type_allowed">Разрешённые приложения</string>
+    <string name="list_type_disallowed">Запрещённые приложения</string>
+
+    <string name="dialog_save_profile">Введите имя профиля.\nЕсли оставить пустым, будет использовано имя хоста.\nЕсли имя уже есть, профиль будет перезаписан.</string>
+    <string name="dialog_export_warning">Пароль тоже будет экспортирован открытым текстом. Если это не нужно, очистите поле «Пароль» перед экспортом.</string>
+    <string name="dialog_reload_confirm">Сбросить настройки до значений по умолчанию?</string>
+    <string name="dialog_remote_config_warning">Нужен тот же JSON, что создаёт «Экспортировать профиль», и только по HTTPS. Пароль в файле хранится открытым текстом. Файл заменяет сохранённые настройки. Значения, которых нет в файле, возвращаются к значениям по умолчанию. Папки сертификатов и журнала на этом устройстве не меняются. Этот URL сохраняется и загружается вместе с профилем. Если файл содержит новый URL, следующая загрузка идёт с него.</string>
+
+    <string name="action_save">СОХРАНИТЬ</string>
+    <string name="action_cancel">ОТМЕНА</string>
+    <string name="action_proceed">ПРОДОЛЖИТЬ</string>
+    <string name="action_yes">ДА</string>
+    <string name="action_no">НЕТ</string>
+    <string name="action_load">ЗАГРУЗИТЬ</string>
+    <string name="action_delete">УДАЛИТЬ</string>
+    <string name="action_disconnect">ОТКЛЮЧИТЬ</string>
+
+    <string name="toast_import_failed">НЕ УДАЛОСЬ ИМПОРТИРОВАТЬ</string>
+    <string name="toast_profile_imported">ПРОФИЛЬ ИМПОРТИРОВАН</string>
+    <string name="toast_profile_exported">ПРОФИЛЬ ЭКСПОРТИРОВАН</string>
+    <string name="toast_profile_saved">ПРОФИЛЬ СОХРАНЁН</string>
+    <string name="toast_defaults_reloaded">НАСТРОЙКИ СБРОШЕНЫ</string>
+    <string name="toast_invalid_profile">НЕКОРРЕКТНЫЙ ПРОФИЛЬ</string>
+    <string name="toast_profile_loaded">ПРОФИЛЬ ЗАГРУЖЕН</string>
+    <string name="toast_profile_deleted">ПРОФИЛЬ УДАЛЁН</string>
+    <string name="toast_invalid_setting">НЕКОРРЕКТНАЯ НАСТРОЙКА: %1$s</string>
+    <string name="toast_remote_config_applied">КОНФИГУРАЦИЯ ОБНОВЛЕНА</string>
+    <string name="toast_remote_config_unchanged">КОНФИГУРАЦИЯ БЕЗ ИЗМЕНЕНИЙ</string>
+
+    <string name="error_hostname_missing">Не указано имя хоста</string>
+    <string name="error_port_range">Указанный порт вне диапазона 0–65535</string>
+    <string name="error_certs_need_ssl_version">Для доверенных сертификатов нужно указать версию SSL</string>
+    <string name="error_certs_dir_missing">Каталог сертификатов не выбран</string>
+    <string name="error_no_cipher_suite">Набор шифров не выбран</string>
+    <string name="error_custom_sni_api">Свой SNI требует API уровня 24 или выше</string>
+    <string name="error_custom_sni_blank">Имя хоста SNI не должно быть пустым</string>
+    <string name="error_proxy_hostname_missing">Не указано имя хоста прокси-сервера</string>
+    <string name="error_proxy_port_range">Указанный порт прокси-сервера вне диапазона 0–65535</string>
+    <string name="error_mru_range">Указанный MRU вне диапазона %1$d–%2$d</string>
+    <string name="error_mtu_range">Указанный MTU вне диапазона %1$d–%2$d</string>
+    <string name="error_no_network_protocol">Не включён ни один сетевой протокол</string>
+    <string name="error_static_ipv4_missing">Не указан статический IPv4-адрес</string>
+    <string name="error_no_auth_protocol">Протокол аутентификации не выбран</string>
+    <string name="error_auth_timeout">Таймаут аутентификации PPP должен быть не меньше 1 секунды</string>
+    <string name="error_custom_dns_missing">Не указан адрес своего DNS-сервера</string>
+    <string name="error_retry_count">Число попыток должно быть положительным целым числом</string>
+    <string name="error_log_dir_missing">Каталог журнала не выбран</string>
+    <string name="error_remote_config_url_missing">Не указан URL конфигурации</string>
+    <string name="error_remote_config_https">URL конфигурации должен использовать HTTPS</string>
+    <string name="error_remote_config_invalid_url">URL конфигурации некорректен</string>
+    <string name="error_remote_config_http">Сервер ответил HTTP %1$d</string>
+    <string name="error_remote_config_too_large">Файл конфигурации слишком большой</string>
+    <string name="error_remote_config_redirect">Слишком много перенаправлений</string>
+    <string name="error_remote_config_invalid_json">Файл конфигурации не является профилем</string>
+    <string name="error_remote_config_network">Не удалось скачать конфигурацию</string>
+
+    <string name="status_ssl">[Параметры SSL/TLS]</string>
+    <string name="status_protocol">ПРОТОКОЛ: %1$s</string>
+    <string name="status_suite">НАБОР: %1$s</string>
+    <string name="status_assigned_ip">[Назначенный IP-адрес]</string>
+    <string name="status_dns">[Адрес DNS-сервера]</string>
+    <string name="status_not_specified">Не задан</string>
+    <string name="status_routing">[Маршрутизация]</string>
+    <string name="remote_config_status_applied">Обновлено %1$s</string>
+    <string name="remote_config_status_unchanged">Без изменений %1$s</string>
+    <string name="remote_config_status_failed">Ошибка %1$s: %2$s</string>
+
+    <string name="profile_summary">[Имя хоста]\n%1$s\n\n[Имя пользователя]\n%2$s\n\n[Номер порта]\n%3$s</string>
+
+    <string name="channel_error">Ошибки</string>
+    <string name="channel_reconnect">Переподключение</string>
+    <string name="channel_disconnect">Отключение</string>
+    <string name="channel_certificate">Сертификат</string>
+    <string name="notification_reconnect">Будет попытка переподключения (осталось: %1$d)</string>
+    <string name="notification_cert_title">Можно скачать недоверенный сертификат сервера</string>
+    <string name="notification_cert_text">ВНИМАНИЕ: недоверенные сертификаты могут сделать устройство уязвимым</string>
+
+    <string name="log_establish">Установка VPN-соединения</string>
+    <string name="log_terminate">Завершение VPN-соединения</string>
+    <string name="notify_log_null_preference">ЖУРНАЛ: не задана настройка каталога (ERR_NULL_PREFERENCE)</string>
+    <string name="notify_log_null_directory">ЖУРНАЛ: каталог недоступен (ERR_NULL_DIRECTORY)</string>
+    <string name="notify_log_null_file">ЖУРНАЛ: не удалось создать файл (ERR_NULL_FILE)</string>
+    <string name="notify_log_null_stream">ЖУРНАЛ: не удалось открыть файл (ERR_NULL_STREAM)</string>
+
+    <plurals name="summary_suites_selected">
+        <item quantity="one">Выбран %d набор</item>
+        <item quantity="few">Выбрано %d набора</item>
+        <item quantity="many">Выбрано %d наборов</item>
+        <item quantity="other">Выбрано %d наборов</item>
+    </plurals>
+    <plurals name="summary_protocols_selected">
+        <item quantity="one">Выбран %d протокол</item>
+        <item quantity="few">Выбрано %d протокола</item>
+        <item quantity="many">Выбрано %d протоколов</item>
+        <item quantity="other">Выбрано %d протоколов</item>
+    </plurals>
+    <plurals name="summary_apps_allowed">
+        <item quantity="one">[%d приложение разрешено]</item>
+        <item quantity="few">[%d приложения разрешены]</item>
+        <item quantity="many">[%d приложений разрешены]</item>
+        <item quantity="other">[%d приложений разрешены]</item>
+    </plurals>
+    <plurals name="summary_apps_disallowed">
+        <item quantity="one">[%d приложение запрещено]</item>
+        <item quantity="few">[%d приложения запрещены]</item>
+        <item quantity="many">[%d приложений запрещены]</item>
+        <item quantity="other">[%d приложений запрещены]</item>
+    </plurals>
+</resources>
