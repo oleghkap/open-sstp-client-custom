@@ -1,5 +1,9 @@
 package kittoku.osc.preference
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -8,6 +12,8 @@ import org.junit.Assert.fail
 import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.net.URI
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 
 class RemoteConfigTest {
@@ -179,6 +185,29 @@ class RemoteConfigTest {
         expectFailure(RemoteConfigFailure.NOT_HTTPS) {
             resolveHttps(current, "http://vpn.example.com/config.json")
         }
+    }
+
+    @Test(timeout = 5_000)
+    fun cancelledBlockingCallAbortsTheWait() = runBlocking {
+        val started = CountDownLatch(1)
+        val aborted = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val job = launch(Dispatchers.IO) {
+            blockingCall({
+                aborted.countDown()
+                release.countDown()
+            }) {
+                started.countDown()
+                assertTrue(release.await(4, TimeUnit.SECONDS))
+            }
+        }
+
+        assertTrue(started.await(2, TimeUnit.SECONDS))
+        val startedAt = System.nanoTime()
+        job.cancelAndJoin()
+        val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+        assertTrue(aborted.await(1, TimeUnit.SECONDS))
+        assertTrue("cancel took ${elapsedMs}ms", elapsedMs < 1_000)
     }
 
     @Test

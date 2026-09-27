@@ -10,10 +10,13 @@ import kittoku.osc.preference.accessor.setStringPrefValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.coroutineContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import java.io.ByteArrayOutputStream
@@ -145,7 +148,7 @@ private fun requireHttps(uri: URI): URI {
     return uri
 }
 
-private fun downloadAndApply(context: Context, prefs: SharedPreferences): RemoteConfigResult {
+private suspend fun downloadAndApply(context: Context, prefs: SharedPreferences): RemoteConfigResult {
     val result = try {
         val url = getStringPrefValue(OscPrefKey.REMOTE_CONFIG_URL, prefs)
         if (url.isBlank()) {
@@ -165,11 +168,12 @@ private fun downloadAndApply(context: Context, prefs: SharedPreferences): Remote
         RemoteConfigResult.Failed(context.getString(R.string.error_remote_config_network))
     }
 
+    coroutineContext.ensureActive()
     recordStatus(context, prefs, result)
     return result
 }
 
-internal fun downloadRemoteProfile(url: String): Profile {
+internal suspend fun downloadRemoteProfile(url: String): Profile {
     return try {
         decodeRemoteProfile(downloadRemoteConfig(url))
     } catch (_: SerializationException) {
@@ -179,11 +183,27 @@ internal fun downloadRemoteProfile(url: String): Profile {
     }
 }
 
-private fun downloadRemoteConfig(url: String): ByteArray {
+internal suspend fun <T> blockingCall(abort: () -> Unit, block: () -> T): T {
+    return suspendCancellableCoroutine { continuation ->
+        continuation.invokeOnCancellation {
+            try {
+                abort()
+            } catch (_: Exception) {
+            }
+        }
+        val result = runCatching(block)
+        if (continuation.isActive) {
+            continuation.resumeWith(result)
+        }
+    }
+}
+
+internal suspend fun downloadRemoteConfig(url: String): ByteArray {
     var current = requireHttps(url)
     var redirects = 0
 
     while (true) {
+        coroutineContext.ensureActive()
         val connection = (current.toURL().openConnection() as HttpURLConnection).apply {
             instanceFollowRedirects = false
             useCaches = false
@@ -196,7 +216,7 @@ private fun downloadRemoteConfig(url: String): ByteArray {
         }
 
         try {
-            val code = connection.responseCode
+            val code = blockingCall({ connection.disconnect() }) { connection.responseCode }
             if (code in 300..399) {
                 if (++redirects > REMOTE_CONFIG_MAX_REDIRECTS) {
                     throw RemoteConfigException(RemoteConfigFailure.REDIRECT)
@@ -216,7 +236,9 @@ private fun downloadRemoteConfig(url: String): ByteArray {
                 throw RemoteConfigException(RemoteConfigFailure.TOO_LARGE)
             }
 
-            return connection.inputStream.use { readCapped(it, REMOTE_CONFIG_MAX_BYTES) }
+            return blockingCall({ connection.disconnect() }) {
+                connection.inputStream.use { readCapped(it, REMOTE_CONFIG_MAX_BYTES) }
+            }
         } finally {
             connection.disconnect()
         }

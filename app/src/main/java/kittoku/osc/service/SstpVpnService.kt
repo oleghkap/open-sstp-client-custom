@@ -37,12 +37,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -110,6 +108,7 @@ internal class SstpVpnService : VpnService() {
         return when (intent?.action) {
             ACTION_VPN_CONNECT -> {
                 val generation = ++connectGeneration
+                jobReconnect?.cancel()
                 jobConnect?.cancel()
                 controller?.kill(false, null)
 
@@ -121,17 +120,24 @@ internal class SstpVpnService : VpnService() {
             }
 
             else -> {
-                connectGeneration++
-                // ensure that reconnection has been completely canceled or done
-                runBlocking {
-                    jobReconnect?.cancelAndJoin()
-                    jobConnect?.cancelAndJoin()
+                val generation = ++connectGeneration
+                val reconnectJob = jobReconnect
+                val connectJob = jobConnect
+                jobReconnect = null
+                jobConnect = null
+                reconnectJob?.cancel()
+                connectJob?.cancel()
+
+                // Join off the main thread. The connect job can be blocked in a download.
+                scope.launch {
+                    reconnectJob?.join()
+                    connectJob?.join()
+                    if (generation != connectGeneration) return@launch
+
+                    controller?.disconnect()
+                    controller = null
+                    close()
                 }
-
-                controller?.disconnect()
-                controller = null
-
-                close()
 
                 START_NOT_STICKY
             }
@@ -140,28 +146,7 @@ internal class SstpVpnService : VpnService() {
 
     private suspend fun connectAfterRemoteConfig(generation: Int) {
         try {
-            fetchRemoteConfigIfEnabled(applicationContext, prefs)
-            coroutineContext.ensureActive()
-            if (generation != connectGeneration) return
-
-            val error = checkPreferences(prefs, this)
-            if (error != null) {
-                if (generation != connectGeneration) return
-                setStringPrefValue(error, OscPrefKey.HOME_STATUS, prefs)
-                notifyError(getString(R.string.toast_invalid_setting, error))
-                setRootState(false)
-                close()
-                return
-            }
-
-            if (generation != connectGeneration) return
-            resetReconnectionLife(prefs)
-            if (getBooleanPrefValue(OscPrefKey.LOG_DO_SAVE_LOG, prefs)) {
-                prepareLogWriter()
-            }
-
-            logWriter?.write(getString(R.string.log_establish))
-            initializeClient()
+            openClient(generation, freshSession = true)
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -170,6 +155,37 @@ internal class SstpVpnService : VpnService() {
             setRootState(false)
             close()
         }
+    }
+
+    private suspend fun openClient(generation: Int, freshSession: Boolean) {
+        fetchRemoteConfigIfEnabled(applicationContext, prefs)
+        coroutineContext.ensureActive()
+        if (generation != connectGeneration) return
+
+        val error = checkPreferences(prefs, this)
+        if (error != null) {
+            if (generation != connectGeneration) return
+            setStringPrefValue(error, OscPrefKey.HOME_STATUS, prefs)
+            notifyError(getString(R.string.toast_invalid_setting, error))
+            setRootState(false)
+            close()
+            return
+        }
+
+        coroutineContext.ensureActive()
+        if (generation != connectGeneration) return
+
+        if (freshSession) {
+            resetReconnectionLife(prefs)
+            if (getBooleanPrefValue(OscPrefKey.LOG_DO_SAVE_LOG, prefs)) {
+                prepareLogWriter()
+            }
+            logWriter?.write(getString(R.string.log_establish))
+        }
+
+        coroutineContext.ensureActive()
+        if (generation != connectGeneration) return
+        initializeClient()
     }
 
     private fun initializeClient() {
@@ -210,6 +226,7 @@ internal class SstpVpnService : VpnService() {
     }
 
     internal fun launchJobReconnect() {
+        val generation = connectGeneration
         jobReconnect = scope.launch {
             try {
                 getIntPrefValue(OscPrefKey.RECONNECTION_LIFE, prefs).also {
@@ -223,9 +240,14 @@ internal class SstpVpnService : VpnService() {
 
                 delay(getIntPrefValue(OscPrefKey.RECONNECTION_INTERVAL, prefs) * 1000L)
 
-                initializeClient()
-            } catch (_: CancellationException) { }
-            finally {
+                openClient(generation, freshSession = false)
+            } catch (_: CancellationException) {
+            } catch (_: Exception) {
+                if (generation != connectGeneration) return@launch
+                notifyError(getString(R.string.error_remote_config_network))
+                setRootState(false)
+                close()
+            } finally {
                 cancelNotification(NOTIFICATION_RECONNECT_ID)
             }
         }
