@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/save_profile"
+        android:title="Save"
+        android:icon="@drawable/ic_baseline_save_24"
+        app:showAsAction="always"/>
+
+    <item
+        android:id="@+id/import_profile"
+        android:title="Import Profile" />
+
+    <item
+        android:id="@+id/export_profile"
+        android:title="Export Profile" />
+
+    <item
+        android:id="@+id/reload_defaults"
+        android:title="Reload Defaults" />
+</menu>
