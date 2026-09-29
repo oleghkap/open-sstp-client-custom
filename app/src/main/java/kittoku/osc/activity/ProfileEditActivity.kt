@@ -29,6 +29,7 @@ import kittoku.osc.fragment.HomeFragment
 import kittoku.osc.fragment.SettingFragment
 import kittoku.osc.preference.OscPrefKey
 import kittoku.osc.preference.PROFILE_KEY_HEADER
+import kittoku.osc.preference.accessor.getBooleanPrefValue
 import kittoku.osc.preference.accessor.getStringPrefValue
 import kittoku.osc.preference.accessor.setStringPrefValue
 import kittoku.osc.preference.checkPreferences
@@ -47,7 +48,7 @@ import java.io.BufferedOutputStream
 internal const val EXTRA_PROFILE_NAME = "kittoku.osc.PROFILE_NAME"
 
 // preference keys that are bookkeeping, not user-visible settings; changing them must not
-// trigger the "unsaved changes" save icon
+// trigger the "unsaved changes" state
 private val NON_DIRTYING_KEYS = setOf(
     OscPrefKey.ROOT_STATE.name,
     OscPrefKey.HOME_CONNECTOR.name,
@@ -67,7 +68,8 @@ class ProfileEditActivity : AppCompatActivity() {
     // name of the profile being edited, null while creating a brand-new one
     private var originalName: String? = null
 
-    // true if this exact profile was the one connected/loaded when the screen was opened
+    // true if this exact profile was already connected/loaded when the screen was opened;
+    // in that case we keep it running while editing and reconnect it on save
     private var wasActiveOnEntry = false
 
     private var isDirty = false
@@ -75,7 +77,6 @@ class ProfileEditActivity : AppCompatActivity() {
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key != null && key !in NON_DIRTYING_KEYS && !isDirty) {
             isDirty = true
-            invalidateOptionsMenu()
         }
     }
 
@@ -99,7 +100,6 @@ class ProfileEditActivity : AppCompatActivity() {
                 importProfile(profile, prefs)
                 updatePreferenceView()
                 isDirty = true
-                invalidateOptionsMenu()
                 Toast.makeText(this, "PROFILE IMPORTED", Toast.LENGTH_SHORT).show()
             }
         }
@@ -147,25 +147,32 @@ class ProfileEditActivity : AppCompatActivity() {
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
 
         originalName = intent.getStringExtra(EXTRA_PROFILE_NAME)
-        wasActiveOnEntry = originalName != null &&
-                originalName == getStringPrefValue(OscPrefKey.ACTIVE_PROFILE_NAME, prefs) &&
-                kittoku.osc.preference.accessor.getBooleanPrefValue(OscPrefKey.HOME_CONNECTOR, prefs)
 
-        // this app keeps a single shared set of "current" settings; make sure editing a
-        // profile never mutates settings out from under a connection that depends on them
-        if (kittoku.osc.preference.accessor.getBooleanPrefValue(OscPrefKey.HOME_CONNECTOR, prefs)) {
+        val currentActiveName = getStringPrefValue(OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
+        val isConnected = getBooleanPrefValue(OscPrefKey.HOME_CONNECTOR, prefs)
+        val isEditingActiveProfile = originalName != null && originalName == currentActiveName
+
+        wasActiveOnEntry = isEditingActiveProfile && isConnected
+
+        // this app keeps a single shared set of "current" settings. Opening the profile that
+        // is already loaded/connected is safe to view and edit in place - it already IS the
+        // live settings. Switching to a DIFFERENT profile (or creating a new one) is about to
+        // overwrite those live settings, so any existing connection must be dropped first.
+        if (isConnected && !isEditingActiveProfile) {
             startVpnService(this, ACTION_VPN_DISCONNECT)
         }
 
-        val storedName = originalName
-        if (storedName != null) {
-            val json = prefs.getString(PROFILE_KEY_HEADER + storedName, null)
-            importProfile(json?.let { deserializeProfile(it) }, prefs)
-            title = storedName
-        } else {
-            importProfile(null, prefs)
-            title = "New Profile"
+        if (!isEditingActiveProfile) {
+            val storedName = originalName
+            if (storedName != null) {
+                val json = prefs.getString(PROFILE_KEY_HEADER + storedName, null)
+                importProfile(json?.let { deserializeProfile(it) }, prefs)
+            } else {
+                importProfile(null, prefs)
+            }
         }
+
+        title = originalName ?: "New Profile"
 
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
@@ -204,12 +211,6 @@ class ProfileEditActivity : AppCompatActivity() {
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         MenuInflater(this).inflate(R.menu.profile_edit_menu, menu)
-
-        menu?.findItem(R.id.save_profile)?.also {
-            it.isEnabled = isDirty
-            it.icon?.alpha = if (isDirty) 255 else 90
-        }
-
         return true
     }
 
@@ -266,9 +267,15 @@ class ProfileEditActivity : AppCompatActivity() {
 
                 prefs.edit().putString(PROFILE_KEY_HEADER + finalName, serializeProfile(prefs)).apply()
                 setStringPrefValue(finalName, OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
+                originalName = finalName
 
                 Toast.makeText(this, "PROFILE SAVED", Toast.LENGTH_SHORT).show()
+                isDirty = false
 
+                // this profile was already running (or the app is already connected using it):
+                // reconnect immediately so the running tunnel picks up the new settings.
+                // The service kills any existing controller before reconnecting, so this is
+                // safe to call whether or not it was already connected.
                 if (wasActiveOnEntry) {
                     checkPreferences(prefs)?.also { message ->
                         toastInvalidSetting(message, this)
@@ -317,7 +324,6 @@ class ProfileEditActivity : AppCompatActivity() {
                 updatePreferenceView()
 
                 isDirty = true
-                invalidateOptionsMenu()
 
                 Toast.makeText(this, "DEFAULTS RELOADED", Toast.LENGTH_SHORT).show()
             }
