@@ -24,6 +24,7 @@ import kittoku.osc.control.LogWriter
 import kittoku.osc.preference.OscPrefKey
 import kittoku.osc.preference.accessor.getBooleanPrefValue
 import kittoku.osc.preference.accessor.getIntPrefValue
+import kittoku.osc.preference.accessor.getStringPrefValue
 import kittoku.osc.preference.accessor.getURIPrefValue
 import kittoku.osc.preference.accessor.resetReconnectionLife
 import kittoku.osc.preference.accessor.setBooleanPrefValue
@@ -56,6 +57,8 @@ internal const val NOTIFICATION_RECONNECT_ID = 2
 internal const val NOTIFICATION_DISCONNECT_ID = 3
 internal const val NOTIFICATION_CERTIFICATE_ID = 4
 
+private const val STATUS_UPDATE_INTERVAL = 2_000L
+
 
 internal class SstpVpnService : VpnService() {
     private lateinit var prefs: SharedPreferences
@@ -67,6 +70,7 @@ internal class SstpVpnService : VpnService() {
     private var controller: Controller?  = null
 
     private var jobReconnect: Job? = null
+    private var jobStatusUpdater: Job? = null
 
     private fun setRootState(state: Boolean) {
         setBooleanPrefValue(state, OscPrefKey.ROOT_STATE, prefs)
@@ -102,6 +106,8 @@ internal class SstpVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         return when (intent?.action) {
             ACTION_VPN_CONNECT -> {
+                jobStatusUpdater?.cancel()
+
                 // if a connection is already running (editing settings live, switching
                 // profiles, or saving with an immediate reconnect), tear it down and WAIT for
                 // that teardown to actually finish before starting the new one. The old
@@ -123,10 +129,14 @@ internal class SstpVpnService : VpnService() {
 
                 setRootState(true)
 
+                startStatusUpdater()
+
                 START_STICKY
             }
 
             else -> {
+                jobStatusUpdater?.cancel()
+
                 // ensure that reconnection has been completely canceled or done
                 runBlocking { jobReconnect?.cancelAndJoin() }
 
@@ -213,6 +223,33 @@ internal class SstpVpnService : VpnService() {
             }
         }
 
+        startForeground(NOTIFICATION_DISCONNECT_ID, buildStatusNotification())
+    }
+
+    // updates the ongoing notification every couple seconds with the real connection state
+    // ("Соединение…" while negotiating, "Соединено" once the tunnel is fully up), which
+    // profile is connected, and live incoming/outgoing traffic.
+    private fun startStatusUpdater() {
+        jobStatusUpdater = scope.launch {
+            while (true) {
+                tryNotify(buildStatusNotification(), NOTIFICATION_DISCONNECT_ID)
+                delay(STATUS_UPDATE_INTERVAL)
+            }
+        }
+    }
+
+    private fun buildStatusNotification(): Notification {
+        val profileName = getStringPrefValue(OscPrefKey.ACTIVE_PROFILE_NAME, prefs).ifEmpty { getString(R.string.app_name) }
+        val isEstablished = getStringPrefValue(OscPrefKey.HOME_STATUS, prefs).isNotEmpty()
+        val stateLabel = if (isEstablished) "Соединено" else "Соединение…"
+
+        val ipTerminal = controller?.bridge?.ipTerminal
+        val trafficText = if (isEstablished && ipTerminal != null) {
+            "Входящий: ${formatBytes(ipTerminal.bytesIn.get())}  •  Исходящий: ${formatBytes(ipTerminal.bytesOut.get())}"
+        } else {
+            null
+        }
+
         val pendingIntent = PendingIntent.getService(
             this,
             0,
@@ -220,15 +257,26 @@ internal class SstpVpnService : VpnService() {
             PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val builder = NotificationCompat.Builder(this, NOTIFICATION_DISCONNECT_CHANNEL).also {
+        return NotificationCompat.Builder(this, NOTIFICATION_DISCONNECT_CHANNEL).also {
             it.priority = NotificationCompat.PRIORITY_DEFAULT
             it.setOngoing(true)
-            it.setAutoCancel(true)
+            it.setAutoCancel(false)
             it.setSmallIcon(R.drawable.ic_baseline_vpn_lock_24)
+            it.setContentTitle("$profileName — $stateLabel")
+            if (trafficText != null) {
+                it.setContentText(trafficText)
+            }
             it.addAction(R.drawable.ic_baseline_close_24, "DISCONNECT", pendingIntent)
-        }
+        }.build()
+    }
 
-        startForeground(NOTIFICATION_DISCONNECT_ID, builder.build())
+    private fun formatBytes(bytes: Long): String {
+        if (bytes < 1024) return "$bytes B"
+        val kb = bytes / 1024.0
+        if (kb < 1024) return String.format(Locale.getDefault(), "%.1f KB", kb)
+        val mb = kb / 1024.0
+        if (mb < 1024) return String.format(Locale.getDefault(), "%.1f MB", mb)
+        return String.format(Locale.getDefault(), "%.2f GB", mb / 1024.0)
     }
 
     internal fun notifyMessage(message: String, id: Int, channel: String) {
@@ -266,6 +314,8 @@ internal class SstpVpnService : VpnService() {
     }
 
     override fun onDestroy() {
+        jobStatusUpdater?.cancel()
+
         logWriter?.write("Terminate VPN connection")
         logWriter?.close()
         logWriter = null
