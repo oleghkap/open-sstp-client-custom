@@ -40,6 +40,11 @@
 
         <activity
             android:exported="false"
+            android:name=".activity.ProfileEditActivity">
+        </activity>
+
+        <activity
+            android:exported="false"
             android:name=".activity.BlankActivity">
         </activity>
 
