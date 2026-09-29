@@ -44,7 +44,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == OscPrefKey.HOME_CONNECTOR.name || key == OscPrefKey.ACTIVE_PROFILE_NAME.name) {
+        if (key == OscPrefKey.HOME_CONNECTOR.name ||
+            key == OscPrefKey.ACTIVE_PROFILE_NAME.name ||
+            key == OscPrefKey.HOME_STATUS.name
+        ) {
             refreshList()
         }
     }
@@ -100,6 +103,7 @@ class MainActivity : AppCompatActivity() {
 
             val activeName = getStringPrefValue(OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
             val isConnected = getBooleanPrefValue(OscPrefKey.HOME_CONNECTOR, prefs)
+            val statusText = getStringPrefValue(OscPrefKey.HOME_STATUS, prefs)
 
             val inflater = LayoutInflater.from(this)
             names.forEach { name ->
@@ -107,9 +111,18 @@ class MainActivity : AppCompatActivity() {
 
                 row.findViewById<TextView>(R.id.profileName).text = name
 
+                val statusView = row.findViewById<TextView>(R.id.profileStatus)
+                val isThisRowActive = (activeName == name && isConnected)
+                if (isThisRowActive && statusText.isNotEmpty()) {
+                    statusView.text = statusText
+                    statusView.visibility = android.view.View.VISIBLE
+                } else {
+                    statusView.visibility = android.view.View.GONE
+                }
+
                 val switch = row.findViewById<SwitchMaterial>(R.id.profileSwitch)
                 switch.setOnCheckedChangeListener(null)
-                switch.isChecked = (activeName == name && isConnected)
+                switch.isChecked = isThisRowActive
                 switch.setOnCheckedChangeListener { _, isChecked ->
                     onToggleProfile(name, isChecked, switch)
                 }
