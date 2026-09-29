@@ -102,7 +102,14 @@ internal class SstpVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         return when (intent?.action) {
             ACTION_VPN_CONNECT -> {
-                controller?.kill(false, null)
+                // if a connection is already running (editing settings live, switching
+                // profiles, or saving with an immediate reconnect), tear it down and WAIT for
+                // that teardown to actually finish before starting the new one. The old
+                // controller must not stop this service in the process (shouldStopService =
+                // false), otherwise it would kill the brand new connection started right after.
+                controller?.also { old ->
+                    runBlocking { old.kill(false, null, shouldStopService = false).join() }
+                }
 
                 beForegrounded()
                 resetReconnectionLife(prefs)
