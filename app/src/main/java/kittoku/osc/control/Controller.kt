@@ -256,10 +256,19 @@ internal class Controller(internal val bridge: SharedBridge) {
         }
     }
 
-    internal fun kill(isReconnectionRequested: Boolean, cleanup: (suspend () -> Unit)?) {
-        if (!mutex.tryLock()) return
+    // shouldStopService=false is used when a brand new connection attempt is about to start
+    // right after this one is torn down (editing settings, switching profiles, saving with the
+    // "reconnect" action): the old controller must release its sockets/tun interface, but must
+    // NOT call service.close()/stopSelf(), which would otherwise kill the new connection too.
+    // The returned Job lets the caller await this cleanup before starting the next attempt.
+    internal fun kill(
+        isReconnectionRequested: Boolean,
+        cleanup: (suspend () -> Unit)? = null,
+        shouldStopService: Boolean = true,
+    ): Job {
+        if (!mutex.tryLock()) return Job().apply { complete() }
 
-        bridge.service.scope.launch {
+        return bridge.service.scope.launch {
             observer?.close()
 
             jobMain?.cancel()
@@ -271,7 +280,7 @@ internal class Controller(internal val bridge: SharedBridge) {
 
             if (isReconnectionRequested && isReconnectionAvailable) {
                 bridge.service.launchJobReconnect()
-            } else {
+            } else if (shouldStopService) {
                 bridge.service.close()
             }
         }
