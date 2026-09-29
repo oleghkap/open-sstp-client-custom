@@ -31,13 +31,12 @@
             android:id="@+id/profileStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
+            android:layout_marginTop="4dp"
             android:textSize="13sp"
             android:textColor="#888888"
-            android:ellipsize="end"
-            android:maxLines="1"
+            android:lineSpacingExtra="2dp"
             android:visibility="gone"
-            tools:text="Connected"
+            tools:text="Connected\nIP: 10.0.0.5\nIn: 1.2 MB / Out: 340 KB"
             xmlns:tools="http://schemas.android.com/tools"/>
 
     </LinearLayout>
