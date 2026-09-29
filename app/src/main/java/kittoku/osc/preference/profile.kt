@@ -25,6 +25,7 @@ private val EXCLUDED_BOOLEAN_PREFERENCES = arrayOf(
 
 private val EXCLUDED_STRING_PREFERENCES = arrayOf(
     OscPrefKey.HOME_STATUS,
+    OscPrefKey.ACTIVE_PROFILE_NAME,
 )
 
 @Serializable
