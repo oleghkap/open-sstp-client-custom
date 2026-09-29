@@ -1,145 +1,66 @@
 package kittoku.osc.activity
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
-import android.text.InputType
-import android.view.Menu
-import android.view.MenuInflater
-import android.view.MenuItem
-import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
+import android.view.LayoutInflater
+import android.widget.ImageButton
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.Fragment
-import androidx.preference.EditTextPreference
-import androidx.preference.PreferenceFragmentCompat
-import androidx.preference.PreferenceGroup
-import androidx.preference.PreferenceManager
-import androidx.preference.forEach
-import androidx.viewpager2.adapter.FragmentStateAdapter
-import com.google.android.material.tabs.TabLayoutMediator
+import com.google.android.material.switchmaterial.SwitchMaterial
 import kittoku.osc.BuildConfig
 import kittoku.osc.R
 import kittoku.osc.databinding.ActivityMainBinding
-import kittoku.osc.extension.firstEditText
-import kittoku.osc.extension.sum
-import kittoku.osc.fragment.HomeFragment
-import kittoku.osc.fragment.SettingFragment
 import kittoku.osc.preference.OscPrefKey
 import kittoku.osc.preference.PROFILE_KEY_HEADER
+import kittoku.osc.preference.accessor.getBooleanPrefValue
 import kittoku.osc.preference.accessor.getStringPrefValue
-import kittoku.osc.preference.custom.OscPreference
+import kittoku.osc.preference.accessor.setStringPrefValue
+import kittoku.osc.preference.checkPreferences
 import kittoku.osc.preference.deserializeProfile
 import kittoku.osc.preference.importProfile
-import kittoku.osc.preference.serializeProfile
-import java.io.BufferedInputStream
-import java.io.BufferedOutputStream
+import kittoku.osc.preference.toastInvalidSetting
+import kittoku.osc.service.ACTION_VPN_CONNECT
+import kittoku.osc.service.ACTION_VPN_DISCONNECT
+import kittoku.osc.service.startVpnService
 
 
 class MainActivity : AppCompatActivity() {
     private lateinit var prefs: SharedPreferences
+    private lateinit var binding: ActivityMainBinding
 
-    private lateinit var homeFragment: PreferenceFragmentCompat
-    private lateinit var settingFragment: PreferenceFragmentCompat
-
-    private val dialogResource: Int by lazy { EditTextPreference(this).dialogLayoutResource }
-
-    private val profileLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode != RESULT_OK) {
-            return@registerForActivityResult
-        }
-
-        updatePreferenceView()
-    }
-
-    private val importLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.also {
-            val profile = contentResolver.openInputStream(it)?.let { stream ->
-                BufferedInputStream(stream).let {
-                    deserializeProfile(it.reader(Charsets.UTF_8).readText())
-                }
-            }
-
-            if (profile == null) {
-                Toast.makeText(this, "IMPORT FAILED", Toast.LENGTH_SHORT).show()
-            } else {
-                importProfile(profile,prefs)
-                updatePreferenceView()
-                Toast.makeText(this, "PROFILE IMPORTED", Toast.LENGTH_SHORT).show()
-            }
+    private val preparationLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            startVpnService(this, ACTION_VPN_CONNECT)
         }
     }
 
-    private val exportLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        uri?.also {
-            contentResolver.openOutputStream(it)?.also { stream ->
-                BufferedOutputStream(stream).use {
-                    it.write(serializeProfile(prefs).toByteArray(Charsets.UTF_8))
-                }
-            }
-
-            Toast.makeText(this, "PROFILE EXPORTED", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun updatePreferenceView() {
-        listOf(homeFragment, settingFragment).forEach { fragment ->
-            if (fragment.isAdded) {
-                val preferenceGroups = mutableListOf<PreferenceGroup>(fragment.preferenceScreen)
-
-                while (preferenceGroups.isNotEmpty()) {
-                    preferenceGroups.removeAt(0).forEach {
-                        if (it is OscPreference) {
-                            it.updateView()
-                        }
-
-                        if (it is PreferenceGroup) {
-                            preferenceGroups.add(it)
-                        }
-                    }
-                }
-            }
+    private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == OscPrefKey.HOME_CONNECTOR.name || key == OscPrefKey.ACTIVE_PROFILE_NAME.name) {
+            refreshList()
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         title = "${getString(R.string.app_name)}: ${BuildConfig.VERSION_NAME}"
-        val binding = ActivityMainBinding.inflate(layoutInflater)
+
+        binding = ActivityMainBinding.inflate(layoutInflater)
         binding.root.fitsSystemWindows = true
         setContentView(binding.root)
 
-        prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        homeFragment = HomeFragment()
-        settingFragment = SettingFragment()
+        prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
 
-        object : FragmentStateAdapter(this) {
-            override fun getItemCount() = 2
-
-            override fun createFragment(position: Int): Fragment {
-                return when (position) {
-                    0 -> homeFragment
-                    1 -> settingFragment
-                    else -> throw NotImplementedError(position.toString())
-                }
-            }
-        }.also {
-            binding.pager.adapter = it
-        }
-
-
-        TabLayoutMediator(binding.tabBar, binding.pager) { tab, position ->
-            tab.text = when (position) {
-                0 -> "HOME"
-                1 -> "SETTING"
-                else -> throw NotImplementedError(position.toString())
-            }
-        }.attach()
-
+        binding.fabAddProfile.setOnClickListener { openEditor(null) }
+        binding.addProfileButton.setOnClickListener { openEditor(null) }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -148,100 +69,115 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        MenuInflater(this).inflate(R.menu.home_menu, menu)
-
-        return true
+    override fun onResume() {
+        super.onResume()
+        prefs.registerOnSharedPreferenceChangeListener(prefsListener)
+        refreshList()
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        when (item.itemId) {
-            R.id.load_profile -> {
-                profileLauncher.launch(Intent(this, BlankActivity::class.java).putExtra(
-                    EXTRA_KEY_TYPE,
-                    BLANK_ACTIVITY_TYPE_PROFILES
-                ))
-            }
-
-            R.id.save_profile -> showSaveDialog()
-
-            R.id.import_profile -> importLauncher.launch(arrayOf("application/json"))
-
-            R.id.export_profile -> showExportDialog()
-
-            R.id.reload_defaults -> showReloadDialog()
-        }
-
-        return true
+    override fun onPause() {
+        prefs.unregisterOnSharedPreferenceChangeListener(prefsListener)
+        super.onPause()
     }
 
-    private fun showSaveDialog() {
-        val inflated = layoutInflater.inflate(dialogResource, null)
-        val editText = inflated.firstEditText()
+    private fun profileNames(): List<String> {
+        return prefs.all.keys
+            .filter { it.startsWith(PROFILE_KEY_HEADER) }
+            .map { it.removePrefix(PROFILE_KEY_HEADER) }
+            .sorted()
+    }
 
-        val hostname = getStringPrefValue(OscPrefKey.HOME_HOSTNAME, prefs)
+    private fun refreshList() {
+        val names = profileNames()
+        binding.profileListContainer.removeAllViews()
 
-        editText.inputType = InputType.TYPE_CLASS_TEXT
-        editText.hint = hostname
-        editText.requestFocus()
+        if (names.isEmpty()) {
+            binding.emptyState.visibility = android.view.View.VISIBLE
+            binding.fabAddProfile.visibility = android.view.View.GONE
+        } else {
+            binding.emptyState.visibility = android.view.View.GONE
+            binding.fabAddProfile.visibility = android.view.View.VISIBLE
 
-        AlertDialog.Builder(this).also {
-            it.setView(inflated)
-            it.setMessage(sum(
-                "Enter the profile's name.\n",
-                "If blank, the hostname will be used.\n",
-                "If duplicated, the profile will be overwritten."
-            ))
+            val activeName = getStringPrefValue(OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
+            val isConnected = getBooleanPrefValue(OscPrefKey.HOME_CONNECTOR, prefs)
 
-            it.setPositiveButton("SAVE") { _, _ ->
-                prefs.edit().also { editor ->
-                    editor.putString(
-                        PROFILE_KEY_HEADER + editText.text.ifEmpty { hostname },
-                        serializeProfile(prefs)
-                    )
-                    editor.apply()
+            val inflater = LayoutInflater.from(this)
+            names.forEach { name ->
+                val row = inflater.inflate(R.layout.item_profile, binding.profileListContainer, false)
+
+                row.findViewById<TextView>(R.id.profileName).text = name
+
+                val switch = row.findViewById<SwitchMaterial>(R.id.profileSwitch)
+                switch.setOnCheckedChangeListener(null)
+                switch.isChecked = (activeName == name && isConnected)
+                switch.setOnCheckedChangeListener { _, isChecked ->
+                    onToggleProfile(name, isChecked, switch)
                 }
 
-                Toast.makeText(this, "PROFILE SAVED", Toast.LENGTH_SHORT).show()
+                row.findViewById<ImageButton>(R.id.profileDelete).setOnClickListener {
+                    confirmDelete(name)
+                }
+
+                row.setOnClickListener { openEditor(name) }
+
+                binding.profileListContainer.addView(row)
             }
-
-            it.setNegativeButton("CANCEL") { _, _ -> }
-
-            it.show()
         }
     }
 
-    private fun showExportDialog() {
-        val filename = getStringPrefValue(OscPrefKey.HOME_HOSTNAME, prefs) + ".json"
+    private fun openEditor(name: String?) {
+        val intent = Intent(this, ProfileEditActivity::class.java)
+        if (name != null) {
+            intent.putExtra(EXTRA_PROFILE_NAME, name)
+        }
+        startActivity(intent)
+    }
 
-        AlertDialog.Builder(this).also {
-            it.setMessage(
-                "Password will be also exported as plain text. If you don't want that, blank Password before exporting."
-            )
+    private fun onToggleProfile(name: String, isChecked: Boolean, switch: SwitchMaterial) {
+        if (isChecked) {
+            val activeName = getStringPrefValue(OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
+            val isConnected = getBooleanPrefValue(OscPrefKey.HOME_CONNECTOR, prefs)
 
-            it.setPositiveButton("PROCEED") { _, _ ->
-                exportLauncher.launch(filename)
+            if (isConnected && activeName != name) {
+                startVpnService(this, ACTION_VPN_DISCONNECT)
             }
 
-            it.setNegativeButton("CANCEL") { _, _ -> }
+            val json = prefs.getString(PROFILE_KEY_HEADER + name, null)
+            importProfile(json?.let { deserializeProfile(it) }, prefs)
+            setStringPrefValue(name, OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
 
-            it.show()
+            checkPreferences(prefs)?.also { message ->
+                toastInvalidSetting(message, this)
+                switch.isChecked = false
+                return
+            }
+
+            VpnService.prepare(this)?.also { intent ->
+                preparationLauncher.launch(intent)
+            } ?: startVpnService(this, ACTION_VPN_CONNECT)
+        } else {
+            val activeName = getStringPrefValue(OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
+            if (activeName == name) {
+                startVpnService(this, ACTION_VPN_DISCONNECT)
+            }
         }
     }
 
-    private fun showReloadDialog() {
+    private fun confirmDelete(name: String) {
         AlertDialog.Builder(this).also {
-            it.setMessage("Are you sure to reload the default settings?")
+            it.setMessage("Delete profile \"$name\"?")
 
-            it.setPositiveButton("YES") { _, _ ->
-                importProfile(null, prefs)
+            it.setPositiveButton("DELETE") { _, _ ->
+                val activeName = getStringPrefValue(OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
+                if (activeName == name && getBooleanPrefValue(OscPrefKey.HOME_CONNECTOR, prefs)) {
+                    startVpnService(this, ACTION_VPN_DISCONNECT)
+                }
 
-                updatePreferenceView()
-
-                Toast.makeText(this, "DEFAULTS RELOADED", Toast.LENGTH_SHORT).show()
+                prefs.edit().remove(PROFILE_KEY_HEADER + name).apply()
+                refreshList()
             }
 
-            it.setNegativeButton("NO") { _, _ -> }
+            it.setNegativeButton("CANCEL") { _, _ -> }
 
             it.show()
         }
