@@ -96,8 +96,28 @@ internal class SharedBridge(internal val service: SstpVpnService) {
 
     internal val HOME_USERNAME = getStringPrefValue(OscPrefKey.HOME_USERNAME, prefs)
     internal val HOME_PASSWORD = getStringPrefValue(OscPrefKey.HOME_PASSWORD, prefs)
-    internal val PPP_MRU = getIntPrefValue(OscPrefKey.PPP_MRU, prefs)
-    internal val PPP_MTU = getIntPrefValue(OscPrefKey.PPP_MTU, prefs)
+
+    // MRU/MTU fall back to the app's built-in defaults unless the person explicitly switched
+    // them to manual and typed a value ("Установить MTU тоннеля" style toggle)
+    internal val PPP_MRU = if (getBooleanPrefValue(OscPrefKey.PPP_MRU_MANUAL, prefs)) {
+        getIntPrefValue(OscPrefKey.PPP_MRU, prefs)
+    } else {
+        DEFAULT_MRU
+    }
+    internal val PPP_MTU = if (getBooleanPrefValue(OscPrefKey.PPP_MTU_MANUAL, prefs)) {
+        getIntPrefValue(OscPrefKey.PPP_MTU, prefs)
+    } else {
+        DEFAULT_MTU
+    }
+
+    // non-null only when "Ограничивать максимальный размер сегмента MSS" is enabled; the value
+    // is the clamp ceiling applied to outgoing TCP SYN packets' advertised MSS
+    internal val MSS_CLAMP_VALUE: Int? = if (getBooleanPrefValue(OscPrefKey.PPP_MSS_DO_CLAMP, prefs)) {
+        getIntPrefValue(OscPrefKey.PPP_MSS_VALUE, prefs)
+    } else {
+        null
+    }
+
     internal val PPP_AUTH_PROTOCOLS = getSetPrefValue(OscPrefKey.PPP_AUTH_PROTOCOLS, prefs)
     internal val PPP_IPv4_ENABLED = getBooleanPrefValue(OscPrefKey.PPP_IPv4_ENABLED, prefs)
     internal val PPP_IPv6_ENABLED = getBooleanPrefValue(OscPrefKey.PPP_IPv6_ENABLED, prefs)

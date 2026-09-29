@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory android:title="General">
+        <kittoku.osc.preference.custom.AutoConnectEnabledPreference android:key="AUTO_CONNECT_ENABLED"/>
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="SSL Layer">
         <kittoku.osc.preference.custom.SSLPortPreference android:key="SSL_PORT"/>
         <kittoku.osc.preference.custom.SSLVersionPreference android:key="SSL_VERSION"/>
@@ -21,8 +25,12 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:title="PPP Layer">
+        <kittoku.osc.preference.custom.PPPMruManualPreference android:key="PPP_MRU_MANUAL"/>
         <kittoku.osc.preference.custom.PPPMruPreference android:key="PPP_MRU"/>
+        <kittoku.osc.preference.custom.PPPMtuManualPreference android:key="PPP_MTU_MANUAL"/>
         <kittoku.osc.preference.custom.PPPMtuPreference android:key="PPP_MTU"/>
+        <kittoku.osc.preference.custom.PPPMssDoClampPreference android:key="PPP_MSS_DO_CLAMP"/>
+        <kittoku.osc.preference.custom.PPPMssValuePreference android:key="PPP_MSS_VALUE"/>
     </PreferenceCategory>
 
     <PreferenceCategory android:title="PPP Authentication Protocol">

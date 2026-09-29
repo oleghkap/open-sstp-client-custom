@@ -35,6 +35,30 @@ internal class PPPIPv6EnabledPreference(context: Context, attrs: AttributeSet) :
     override val preferenceTitle = "Enable IPv6"
 }
 
+internal class PPPMtuManualPreference(context: Context, attrs: AttributeSet) : ModifiedCheckBoxPreference(context, attrs) {
+    override val oscPrefKey = OscPrefKey.PPP_MTU_MANUAL
+    override val parentKey: OscPrefKey? = null
+    override val preferenceTitle = "Set Tunnel MTU"
+}
+
+internal class PPPMruManualPreference(context: Context, attrs: AttributeSet) : ModifiedCheckBoxPreference(context, attrs) {
+    override val oscPrefKey = OscPrefKey.PPP_MRU_MANUAL
+    override val parentKey: OscPrefKey? = null
+    override val preferenceTitle = "Set Tunnel MRU"
+}
+
+internal class PPPMssDoClampPreference(context: Context, attrs: AttributeSet) : ModifiedCheckBoxPreference(context, attrs) {
+    override val oscPrefKey = OscPrefKey.PPP_MSS_DO_CLAMP
+    override val parentKey: OscPrefKey? = null
+    override val preferenceTitle = "Limit Max Segment Size (MSS)"
+}
+
+internal class AutoConnectEnabledPreference(context: Context, attrs: AttributeSet) : ModifiedCheckBoxPreference(context, attrs) {
+    override val oscPrefKey = OscPrefKey.AUTO_CONNECT_ENABLED
+    override val parentKey: OscPrefKey? = null
+    override val preferenceTitle = "Auto-Connect on Boot"
+}
+
 internal class RouteDoAddDefaultRoutePreference(context: Context, attrs: AttributeSet) : ModifiedCheckBoxPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.ROUTE_DO_ADD_DEFAULT_ROUTE
     override val parentKey: OscPrefKey? = null

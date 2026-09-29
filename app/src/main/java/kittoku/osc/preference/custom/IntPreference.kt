@@ -24,14 +24,20 @@ internal class ProxyPortPreference(context: Context, attrs: AttributeSet) : IntP
 
 internal class PPPMruPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.PPP_MRU
-    override val parentKey: OscPrefKey? = null
+    override val parentKey = OscPrefKey.PPP_MRU_MANUAL
     override val preferenceTitle = "MRU"
 }
 
 internal class PPPMtuPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.PPP_MTU
-    override val parentKey: OscPrefKey? = null
+    override val parentKey = OscPrefKey.PPP_MTU_MANUAL
     override val preferenceTitle = "MTU"
+}
+
+internal class PPPMssValuePreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
+    override val oscPrefKey = OscPrefKey.PPP_MSS_VALUE
+    override val parentKey = OscPrefKey.PPP_MSS_DO_CLAMP
+    override val preferenceTitle = "Max Segment Size (MSS)"
 }
 
 internal class PPPAuthTimeoutPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {

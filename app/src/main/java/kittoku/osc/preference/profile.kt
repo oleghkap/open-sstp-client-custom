@@ -21,6 +21,7 @@ private val EXCLUDED_BOOLEAN_PREFERENCES = arrayOf(
     OscPrefKey.ROOT_STATE,
     OscPrefKey.HOME_CONNECTOR,
     OscPrefKey.HOME_STATUS,
+    OscPrefKey.AUTO_CONNECT_ENABLED,
 )
 
 private val EXCLUDED_STRING_PREFERENCES = arrayOf(
