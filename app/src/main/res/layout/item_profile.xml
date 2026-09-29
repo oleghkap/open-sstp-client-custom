@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="?attr/selectableItemBackground"
+    android:paddingStart="20dp"
+    android:paddingEnd="8dp"
+    android:paddingTop="16dp"
+    android:paddingBottom="16dp"
+    android:id="@+id/profileRow">
+
+    <TextView
+        android:id="@+id/profileName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textSize="18sp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        tools:text="My VPN Profile"
+        xmlns:tools="http://schemas.android.com/tools"/>
+
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/profileSwitch"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="4dp"/>
+
+    <ImageButton
+        android:id="@+id/profileDelete"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_baseline_close_24"
+        android:contentDescription="@null"
+        app:tint="#888888"
+        xmlns:app="http://schemas.android.com/apk/res-auto"/>
+
+</LinearLayout>
