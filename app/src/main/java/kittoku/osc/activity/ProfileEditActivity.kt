@@ -6,7 +6,6 @@ import android.net.VpnService
 import android.os.Bundle
 import android.text.InputType
 import android.view.Menu
-import android.view.MenuInflater
 import android.view.MenuItem
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -210,7 +209,10 @@ class ProfileEditActivity : AppCompatActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        MenuInflater(this).inflate(R.menu.profile_edit_menu, menu)
+        // must use the Activity's own (AppCompat-aware) inflater, not a raw platform
+        // MenuInflater, or app:showAsAction/app:icon on menu items are silently ignored
+        // and the save icon never renders in the toolbar
+        menuInflater.inflate(R.menu.profile_edit_menu, menu)
         return true
     }
 
@@ -274,8 +276,8 @@ class ProfileEditActivity : AppCompatActivity() {
 
                 // this profile was already running (or the app is already connected using it):
                 // reconnect immediately so the running tunnel picks up the new settings.
-                // The service kills any existing controller before reconnecting, so this is
-                // safe to call whether or not it was already connected.
+                // The service kills any existing controller (without stopping itself) before
+                // reconnecting, so this is safe to call whether or not it was already connected.
                 if (wasActiveOnEntry) {
                     checkPreferences(prefs)?.also { message ->
                         toastInvalidSetting(message, this)
