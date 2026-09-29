@@ -14,6 +14,7 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.net.InetAddress
 import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicLong
 
 
 // a normalized IPv4 CIDR block: `network` already masked down to `prefix` bits
@@ -92,6 +93,12 @@ internal class IPTerminal(private val bridge: SharedBridge) {
 
     private var inputStream: FileInputStream? = null
     private var outputStream: FileOutputStream? = null
+
+    // live traffic counters for the notification/UI. "In" = bytes delivered to apps on this
+    // device (written into the tun device, i.e. arriving from the server); "Out" = bytes read
+    // from the tun device (originating from apps on this device, heading to the server).
+    internal val bytesIn = AtomicLong(0)
+    internal val bytesOut = AtomicLong(0)
 
     private val doEnableAppBasedRule = getBooleanPrefValue(OscPrefKey.ROUTE_DO_ENABLE_APP_BASED_RULE, bridge.prefs)
     private val isAllowedList = getStringPrefValue(OscPrefKey.ROUTE_APP_LIST_TYPE, bridge.prefs) == LIST_TYPE_ALLOWED
@@ -274,12 +281,17 @@ internal class IPTerminal(private val bridge: SharedBridge) {
         // nothing will be written until initialized
         // the position won't be changed
         outputStream?.write(buffer.array(), start, size)
+        bytesIn.addAndGet(size.toLong())
     }
 
     internal fun readPacket(buffer: ByteBuffer) {
         buffer.clear()
-        buffer.position(inputStream?.read(buffer.array(), 0, bridge.PPP_MTU) ?: buffer.position())
+        val read = inputStream?.read(buffer.array(), 0, bridge.PPP_MTU) ?: -1
+        buffer.position(if (read >= 0) read else buffer.position())
         buffer.flip()
+        if (read > 0) {
+            bytesOut.addAndGet(read.toLong())
+        }
     }
 
     internal fun close() {
