@@ -26,12 +26,12 @@ class BlankActivity : AppCompatActivity() {
 
         when (intent.extras!!.getInt(EXTRA_KEY_TYPE)) {
             BLANK_ACTIVITY_TYPE_PROFILES -> {
-                title = "Profiles"
+                title = "Профили"
                 fragment = ProfilesFragment()
             }
 
             BLANK_ACTIVITY_TYPE_APPS -> {
-                title = "Allowed/Disallowed Apps"
+                title = "Разрешённые/запрещённые приложения"
                 fragment = AppsFragment()
             }
 
