@@ -13,13 +13,13 @@ internal abstract class IntPreference(context: Context, attrs: AttributeSet) : O
 internal class SSLPortPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.SSL_PORT
     override val parentKey: OscPrefKey? = null
-    override val preferenceTitle = "Port Number"
+    override val preferenceTitle = "Номер порта"
 }
 
 internal class ProxyPortPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.PROXY_PORT
     override val parentKey = OscPrefKey.PROXY_DO_USE_PROXY
-    override val preferenceTitle = "Proxy Server Port Number"
+    override val preferenceTitle = "Порт прокси-сервера"
 }
 
 internal class PPPMruPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
@@ -37,23 +37,23 @@ internal class PPPMtuPreference(context: Context, attrs: AttributeSet) : IntPref
 internal class PPPMssValuePreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.PPP_MSS_VALUE
     override val parentKey = OscPrefKey.PPP_MSS_DO_CLAMP
-    override val preferenceTitle = "Max Segment Size (MSS)"
+    override val preferenceTitle = "Максимальный размер сегмента (MSS)"
 }
 
 internal class PPPAuthTimeoutPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.PPP_AUTH_TIMEOUT
     override val parentKey: OscPrefKey? = null
-    override val preferenceTitle = "Timeout Period (second)"
+    override val preferenceTitle = "Тайм-аут (сек)"
 }
 
 internal class ReconnectionCountPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.RECONNECTION_COUNT
     override val parentKey = OscPrefKey.RECONNECTION_ENABLED
-    override val preferenceTitle = "Retry Count"
+    override val preferenceTitle = "Количество попыток"
 }
 
 internal class ReconnectionIntervalPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.RECONNECTION_INTERVAL
     override val parentKey = OscPrefKey.RECONNECTION_ENABLED
-    override val preferenceTitle = "Retry Interval (second)"
+    override val preferenceTitle = "Интервал между попытками (сек)"
 }

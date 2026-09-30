@@ -42,26 +42,26 @@ internal abstract class SummaryPreference(context: Context, attrs: AttributeSet)
 internal class HomeStatusPreference(context: Context, attrs: AttributeSet) : SummaryPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.HOME_STATUS
     override val parentKey: OscPrefKey? = null
-    override val preferenceTitle = "Current Status"
+    override val preferenceTitle = "Текущий статус"
 
     override fun updateView() {
-        summary = getStringPrefValue(oscPrefKey, sharedPreferences!!).ifEmpty { "[No Connection Established]" }
+        summary = getStringPrefValue(oscPrefKey, sharedPreferences!!).ifEmpty { "[Соединение не установлено]" }
     }
 }
 
 internal class RouteSelectedAppsPreference(context: Context, attrs: AttributeSet) : SummaryPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.ROUTE_SELECTED_APPS
     override val parentKey = OscPrefKey.ROUTE_DO_ENABLE_APP_BASED_RULE
-    override val preferenceTitle = "Select Allowed/Disallowed Apps"
+    override val preferenceTitle = "Выбрать разрешённые/запрещённые приложения"
 
     override fun updateView() {
         val isAllowedList = getStringPrefValue(OscPrefKey.ROUTE_APP_LIST_TYPE, sharedPreferences!!) == LIST_TYPE_ALLOWED
-        val verb = if (isAllowedList) "Allowed" else "Disallowed"
+        val verb = if (isAllowedList) "разрешено" else "запрещено"
 
         summary = when (val size = getSetPrefValue(oscPrefKey, sharedPreferences!!).size) {
-            0 -> "[No App $verb]"
-            1 -> "[1 App $verb]"
-            else -> "[$size Apps $verb]"
+            0 -> "[Ни одно приложение не $verb]"
+            1 -> "[1 приложение $verb]"
+            else -> "[$size приложений $verb]"
         }
     }
 }
