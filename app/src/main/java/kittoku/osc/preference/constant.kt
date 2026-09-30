@@ -82,7 +82,7 @@ internal val DEFAULT_BOOLEAN_MAP = mapOf(
     OscPrefKey.ROUTE_DO_ADD_CUSTOM_ROUTES to false,
     OscPrefKey.ROUTE_DO_ENABLE_APP_BASED_RULE to false,
     OscPrefKey.ROUTE_DO_SHOW_BACKGROUND_APPS to false,
-    OscPrefKey.RECONNECTION_ENABLED to false,
+    OscPrefKey.RECONNECTION_ENABLED to true,
     OscPrefKey.LOG_DO_SAVE_LOG to false
 )
 
@@ -92,8 +92,8 @@ internal val DEFAULT_INT_MAP = mapOf(
     OscPrefKey.PPP_MRU to DEFAULT_MRU,
     OscPrefKey.PPP_MTU to DEFAULT_MTU,
     OscPrefKey.PPP_MSS_VALUE to 1350,
-    OscPrefKey.PPP_AUTH_TIMEOUT to 3,
-    OscPrefKey.RECONNECTION_COUNT to 3,
+    OscPrefKey.PPP_AUTH_TIMEOUT to 10,
+    OscPrefKey.RECONNECTION_COUNT to 10,
     OscPrefKey.RECONNECTION_INTERVAL to 10,
     OscPrefKey.RECONNECTION_LIFE to 0
 )

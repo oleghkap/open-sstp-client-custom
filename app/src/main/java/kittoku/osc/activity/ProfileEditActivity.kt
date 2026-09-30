@@ -38,16 +38,12 @@ import kittoku.osc.preference.importProfile
 import kittoku.osc.preference.serializeProfile
 import kittoku.osc.preference.toastInvalidSetting
 import kittoku.osc.service.ACTION_VPN_CONNECT
-import kittoku.osc.service.ACTION_VPN_DISCONNECT
 import kittoku.osc.service.startVpnService
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 
-
 internal const val EXTRA_PROFILE_NAME = "kittoku.osc.PROFILE_NAME"
 
-// preference keys that are bookkeeping, not user-visible settings; changing them must not
-// trigger the "unsaved changes" state
 private val NON_DIRTYING_KEYS = setOf(
     OscPrefKey.ROOT_STATE.name,
     OscPrefKey.HOME_CONNECTOR.name,
@@ -55,27 +51,25 @@ private val NON_DIRTYING_KEYS = setOf(
     OscPrefKey.ACTIVE_PROFILE_NAME.name,
 )
 
-
 class ProfileEditActivity : AppCompatActivity() {
     private lateinit var prefs: SharedPreferences
-
     private lateinit var homeFragment: PreferenceFragmentCompat
     private lateinit var settingFragment: PreferenceFragmentCompat
 
     private val dialogResource: Int by lazy { EditTextPreference(this).dialogLayoutResource }
 
-    // name of the profile being edited, null while creating a brand-new one
     private var originalName: String? = null
-
-    // true if this exact profile was already connected/loaded when the screen was opened;
-    // in that case we keep it running while editing and reconnect it on save
+    private var entryActiveName: String = ""
+    private var entryProfileSnapshot: String = ""
+    private var wasConnectedOnEntry = false
     private var wasActiveOnEntry = false
-
     private var isDirty = false
+    private var isRestoring = false
+    private var saveCompleted = false
 
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key != null && key !in NON_DIRTYING_KEYS && !isDirty) {
-            isDirty = true
+        if (!isRestoring && key != null && key !in NON_DIRTYING_KEYS) {
+            setDirty(true)
         }
     }
 
@@ -86,51 +80,54 @@ class ProfileEditActivity : AppCompatActivity() {
     }
 
     private val importLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.also {
-            val profile = contentResolver.openInputStream(it)?.let { stream ->
-                BufferedInputStream(stream).let { buffered ->
-                    deserializeProfile(buffered.reader(Charsets.UTF_8).readText())
-                }
-            }
+        uri ?: return@registerForActivityResult
 
-            if (profile == null) {
-                Toast.makeText(this, "ОШИБКА ИМПОРТА", Toast.LENGTH_SHORT).show()
-            } else {
-                importProfile(profile, prefs)
-                updatePreferenceView()
-                isDirty = true
-                Toast.makeText(this, "ПРОФИЛЬ ИМПОРТИРОВАН", Toast.LENGTH_SHORT).show()
+        val profile = contentResolver.openInputStream(uri)?.use { stream ->
+            BufferedInputStream(stream).use { buffered ->
+                deserializeProfile(buffered.reader(Charsets.UTF_8).readText())
             }
         }
+
+        if (profile == null) {
+            Toast.makeText(this, "ОШИБКА ИМПОРТА", Toast.LENGTH_SHORT).show()
+            return@registerForActivityResult
+        }
+
+        importProfile(profile, prefs)
+        updatePreferenceView()
+        setDirty(true)
+        Toast.makeText(this, "ПРОФИЛЬ ИМПОРТИРОВАН — СОХРАНИТЕ ЕГО", Toast.LENGTH_SHORT).show()
     }
 
-    private val exportLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        uri?.also {
-            contentResolver.openOutputStream(it)?.also { stream ->
-                BufferedOutputStream(stream).use { buffered ->
-                    buffered.write(serializeProfile(prefs).toByteArray(Charsets.UTF_8))
-                }
-            }
+    private val exportLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        uri ?: return@registerForActivityResult
 
-            Toast.makeText(this, "ПРОФИЛЬ ЭКСПОРТИРОВАН", Toast.LENGTH_SHORT).show()
+        contentResolver.openOutputStream(uri)?.use { stream ->
+            BufferedOutputStream(stream).use { buffered ->
+                buffered.write(serializeProfile(prefs).toByteArray(Charsets.UTF_8))
+            }
         }
+
+        Toast.makeText(this, "ПРОФИЛЬ ЭКСПОРТИРОВАН", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun setDirty(value: Boolean) {
+        if (isDirty == value) return
+        isDirty = value
+        invalidateOptionsMenu()
     }
 
     private fun updatePreferenceView() {
         listOf(homeFragment, settingFragment).forEach { fragment ->
-            if (fragment.isAdded) {
-                val preferenceGroups = mutableListOf<PreferenceGroup>(fragment.preferenceScreen)
+            if (!fragment.isAdded) return@forEach
 
-                while (preferenceGroups.isNotEmpty()) {
-                    preferenceGroups.removeAt(0).forEach {
-                        if (it is OscPreference) {
-                            it.updateView()
-                        }
-
-                        if (it is PreferenceGroup) {
-                            preferenceGroups.add(it)
-                        }
-                    }
+            val preferenceGroups = mutableListOf<PreferenceGroup>(fragment.preferenceScreen)
+            while (preferenceGroups.isNotEmpty()) {
+                preferenceGroups.removeAt(0).forEach {
+                    if (it is OscPreference) it.updateView()
+                    if (it is PreferenceGroup) preferenceGroups.add(it)
                 }
             }
         }
@@ -144,59 +141,48 @@ class ProfileEditActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
-
         originalName = intent.getStringExtra(EXTRA_PROFILE_NAME)
 
-        val currentActiveName = getStringPrefValue(OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
-        val isConnected = getBooleanPrefValue(OscPrefKey.HOME_CONNECTOR, prefs)
-        val isEditingActiveProfile = originalName != null && originalName == currentActiveName
+        entryActiveName = getStringPrefValue(OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
+        wasConnectedOnEntry = getBooleanPrefValue(OscPrefKey.HOME_CONNECTOR, prefs)
+        wasActiveOnEntry =
+            originalName != null && originalName == entryActiveName && wasConnectedOnEntry
+        entryProfileSnapshot = serializeProfile(prefs)
 
-        wasActiveOnEntry = isEditingActiveProfile && isConnected
+        val isEditingActiveProfile = originalName != null && originalName == entryActiveName
 
-        // this app keeps a single shared set of "current" settings. Opening the profile that
-        // is already loaded/connected is safe to view and edit in place - it already IS the
-        // live settings. Switching to a DIFFERENT profile (or creating a new one) is about to
-        // overwrite those live settings, so any existing connection must be dropped first.
-        if (isConnected && !isEditingActiveProfile) {
-            startVpnService(this, ACTION_VPN_DISCONNECT)
+        if (wasConnectedOnEntry && !isEditingActiveProfile) {
+            startVpnService(this, kittoku.osc.service.ACTION_VPN_DISCONNECT)
         }
 
         if (!isEditingActiveProfile) {
-            val storedName = originalName
-            if (storedName != null) {
-                val json = prefs.getString(PROFILE_KEY_HEADER + storedName, null)
-                importProfile(json?.let { deserializeProfile(it) }, prefs)
-            } else {
-                importProfile(null, prefs)
+            val storedJson = originalName?.let {
+                prefs.getString(PROFILE_KEY_HEADER + it, null)
             }
+            importProfile(storedJson?.let { deserializeProfile(it) }, prefs)
         }
 
         title = originalName ?: "Новый профиль"
-
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         homeFragment = HomeFragment()
         settingFragment = SettingFragment()
 
-        object : FragmentStateAdapter(this) {
+        binding.pager.adapter = object : FragmentStateAdapter(this) {
             override fun getItemCount() = 2
 
-            override fun createFragment(position: Int): Fragment {
-                return when (position) {
-                    0 -> homeFragment
-                    1 -> settingFragment
-                    else -> throw NotImplementedError(position.toString())
-                }
+            override fun createFragment(position: Int): Fragment = when (position) {
+                0 -> homeFragment
+                1 -> settingFragment
+                else -> error("Invalid profile editor page: $position")
             }
-        }.also {
-            binding.pager.adapter = it
         }
 
         TabLayoutMediator(binding.tabBar, binding.pager) { tab, position ->
             tab.text = when (position) {
                 0 -> "ОСНОВНОЕ"
                 1 -> "НАСТРОЙКИ"
-                else -> throw NotImplementedError(position.toString())
+                else -> error("Invalid profile editor tab: $position")
             }
         }.attach()
 
@@ -208,37 +194,46 @@ class ProfileEditActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        // must use the Activity's own (AppCompat-aware) inflater, not a raw platform
-        // MenuInflater, or app:showAsAction/app:icon on menu items are silently ignored
-        // and the save icon never renders in the toolbar
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.profile_edit_menu, menu)
         return true
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        when (item.itemId) {
-            android.R.id.home -> {
-                finish()
-                return true
-            }
+    override fun onPrepareOptionsMenu(menu: Menu): Boolean {
+        menu.findItem(R.id.save_profile)?.isVisible = isDirty
+        menu.findItem(R.id.import_profile)?.isVisible = true
+        menu.findItem(R.id.export_profile)?.isVisible = true
+        menu.findItem(R.id.reload_defaults)?.isVisible = true
+        return super.onPrepareOptionsMenu(menu)
+    }
 
-            R.id.save_profile -> performSave()
-
-            R.id.import_profile -> importLauncher.launch(arrayOf("application/json"))
-
-            R.id.export_profile -> showExportDialog()
-
-            R.id.reload_defaults -> showReloadDialog()
+    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        android.R.id.home -> {
+            handleDiscardAndFinish()
+            true
         }
-
-        return true
+        R.id.save_profile -> {
+            if (isDirty) performSave()
+            true
+        }
+        R.id.import_profile -> {
+            importLauncher.launch(arrayOf("application/json"))
+            true
+        }
+        R.id.export_profile -> {
+            showExportDialog()
+            true
+        }
+        R.id.reload_defaults -> {
+            showReloadDialog()
+            true
+        }
+        else -> super.onOptionsItemSelected(item)
     }
 
     private fun performSave() {
         val inflated = layoutInflater.inflate(dialogResource, null)
         val editText = inflated.firstEditText()
-
         val hostname = getStringPrefValue(OscPrefKey.HOME_HOSTNAME, prefs)
 
         editText.inputType = InputType.TYPE_CLASS_TEXT
@@ -246,19 +241,23 @@ class ProfileEditActivity : AppCompatActivity() {
         editText.hint = hostname
         editText.requestFocus()
 
-        AlertDialog.Builder(this).also {
-            it.setView(inflated)
-            it.setMessage(sum(
-                "Введите название профиля.\n",
-                "Если оставить пустым, будет использован адрес сервера.\n",
-                "Если такой профиль уже есть, он будет перезаписан."
-            ))
-
-            it.setPositiveButton("СОХРАНИТЬ") { _, _ ->
-                val finalName = editText.text.toString().ifBlank { hostname }
-
+        AlertDialog.Builder(this)
+            .setView(inflated)
+            .setMessage(
+                sum(
+                    "Введите название профиля.\n",
+                    "Если оставить пустым, будет использован адрес сервера.\n",
+                    "Если такой профиль уже есть, он будет перезаписан.",
+                ),
+            )
+            .setPositiveButton("СОХРАНИТЬ") { _, _ ->
+                val finalName = editText.text.toString().ifBlank { hostname }.trim()
                 if (finalName.isBlank()) {
-                    Toast.makeText(this, "УКАЖИТЕ ИМЯ ПРОФИЛЯ ИЛИ АДРЕС СЕРВЕРА", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this,
+                        "УКАЖИТЕ ИМЯ ПРОФИЛЯ ИЛИ АДРЕС СЕРВЕРА",
+                        Toast.LENGTH_SHORT,
+                    ).show()
                     return@setPositiveButton
                 }
 
@@ -267,17 +266,20 @@ class ProfileEditActivity : AppCompatActivity() {
                     prefs.edit().remove(PROFILE_KEY_HEADER + previousName).apply()
                 }
 
-                prefs.edit().putString(PROFILE_KEY_HEADER + finalName, serializeProfile(prefs)).apply()
-                setStringPrefValue(finalName, OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
+                prefs.edit()
+                    .putString(PROFILE_KEY_HEADER + finalName, serializeProfile(prefs))
+                    .apply()
+
+                if (entryActiveName == previousName && wasConnectedOnEntry) {
+                    setStringPrefValue(finalName, OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
+                }
+
                 originalName = finalName
+                setDirty(false)
+                saveCompleted = true
 
                 Toast.makeText(this, "ПРОФИЛЬ СОХРАНЁН", Toast.LENGTH_SHORT).show()
-                isDirty = false
 
-                // this profile was already running (or the app is already connected using it):
-                // reconnect immediately so the running tunnel picks up the new settings.
-                // The service kills any existing controller (without stopping itself) before
-                // reconnecting, so this is safe to call whether or not it was already connected.
                 if (wasActiveOnEntry) {
                     checkPreferences(prefs)?.also { message ->
                         toastInvalidSetting(message, this)
@@ -286,69 +288,97 @@ class ProfileEditActivity : AppCompatActivity() {
                             preparationLauncher.launch(intent)
                         } ?: startVpnService(this, ACTION_VPN_CONNECT)
                     }
+                } else if (wasConnectedOnEntry) {
+                    restoreEntryState()
                 }
 
                 setResult(RESULT_OK)
                 finish()
             }
-
-            it.setNegativeButton("ОТМЕНА") { _, _ -> }
-
-            it.show()
-        }
+            .setNegativeButton("ОТМЕНА", null)
+            .show()
     }
 
     private fun showExportDialog() {
-        val filename = getStringPrefValue(OscPrefKey.HOME_HOSTNAME, prefs) + ".json"
+        val filename = getStringPrefValue(OscPrefKey.HOME_HOSTNAME, prefs)
+            .ifBlank { "profile" } + ".json"
 
-        AlertDialog.Builder(this).also {
-            it.setMessage(
-                "Пароль также будет экспортирован открытым текстом. Если это нежелательно, очистите поле пароля перед экспортом."
+        AlertDialog.Builder(this)
+            .setMessage(
+                "Пароль также будет экспортирован открытым текстом. " +
+                    "Если это нежелательно, очистите поле пароля перед экспортом.",
             )
-
-            it.setPositiveButton("ПРОДОЛЖИТЬ") { _, _ ->
-                exportLauncher.launch(filename)
+            .setPositiveButton("ПРОДОЛЖИТЬ") {
+                    _, _ -> exportLauncher.launch(filename)
             }
-
-            it.setNegativeButton("ОТМЕНА") { _, _ -> }
-
-            it.show()
-        }
+            .setNegativeButton("ОТМЕНА", null)
+            .show()
     }
 
     private fun showReloadDialog() {
-        AlertDialog.Builder(this).also {
-            it.setMessage("Сбросить настройки по умолчанию?")
-
-            it.setPositiveButton("ДА") { _, _ ->
+        AlertDialog.Builder(this)
+            .setMessage("Сбросить настройки текущего профиля по умолчанию?")
+            .setPositiveButton("ДА") { _, _ ->
                 importProfile(null, prefs)
-
                 updatePreferenceView()
-
-                isDirty = true
-
-                Toast.makeText(this, "НАСТРОЙКИ СБРОШЕНЫ", Toast.LENGTH_SHORT).show()
+                setDirty(true)
+                Toast.makeText(
+                    this,
+                    "НАСТРОЙКИ СБРОШЕНЫ — СОХРАНИТЕ ПРОФИЛЬ",
+                    Toast.LENGTH_SHORT,
+                ).show()
             }
+            .setNegativeButton("НЕТ", null)
+            .show()
+    }
 
-            it.setNegativeButton("НЕТ") { _, _ -> }
+    private fun restoreEntryState() {
+        isRestoring = true
+        try {
+            importProfile(deserializeProfile(entryProfileSnapshot), prefs)
+            setStringPrefValue(entryActiveName, OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
+        } finally {
+            isRestoring = false
+        }
 
-            it.show()
+        setDirty(false)
+
+        if (wasConnectedOnEntry) {
+            checkPreferences(prefs)?.also { message ->
+                toastInvalidSetting(message, this)
+            } ?: run {
+                VpnService.prepare(this)?.also { intent ->
+                    preparationLauncher.launch(intent)
+                } ?: startVpnService(this, ACTION_VPN_CONNECT)
+            }
         }
     }
 
-    override fun onBackPressed() {
-        if (isDirty) {
-            AlertDialog.Builder(this).also {
-                it.setMessage("Отменить несохранённые изменения?")
-
-                it.setPositiveButton("НЕ СОХРАНЯТЬ") { _, _ -> super.onBackPressed() }
-
-                it.setNegativeButton("ПРОДОЛЖИТЬ РЕДАКТИРОВАНИЕ") { _, _ -> }
-
-                it.show()
-            }
-        } else {
-            super.onBackPressed()
+    private fun handleDiscardAndFinish() {
+        if (saveCompleted) {
+            finish()
+            return
         }
+
+        if (!isDirty) {
+            if (wasConnectedOnEntry && !wasActiveOnEntry) {
+                restoreEntryState()
+            }
+            finish()
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setMessage("Отменить несохранённые изменения?")
+            .setPositiveButton("НЕ СОХРАНЯТЬ") { _, _ ->
+                restoreEntryState()
+                finish()
+            }
+            .setNegativeButton("ПРОДОЛЖИТЬ РЕДАКТИРОВАНИЕ", null)
+            .show()
+    }
+
+    override fun onBackPressed() {
+        handleDiscardAndFinish()
     }
 }
