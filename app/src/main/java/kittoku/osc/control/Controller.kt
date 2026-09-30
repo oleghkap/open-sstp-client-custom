@@ -261,10 +261,14 @@ internal class Controller(internal val bridge: SharedBridge) {
     // "reconnect" action): the old controller must release its sockets/tun interface, but must
     // NOT call service.close()/stopSelf(), which would otherwise kill the new connection too.
     // The returned Job lets the caller await this cleanup before starting the next attempt.
+    //
+    // shouldStopService is placed BEFORE cleanup (not after) on purpose: Kotlin binds a
+    // trailing lambda `kill(x) { ... }` to the LAST parameter, and every other call site in
+    // this file relies on that trailing lambda being `cleanup`.
     internal fun kill(
         isReconnectionRequested: Boolean,
-        cleanup: (suspend () -> Unit)? = null,
         shouldStopService: Boolean = true,
+        cleanup: (suspend () -> Unit)? = null,
     ): Job {
         if (!mutex.tryLock()) return Job().apply { complete() }
 
