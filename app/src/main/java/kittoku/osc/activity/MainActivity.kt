@@ -178,9 +178,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun confirmDelete(name: String) {
         AlertDialog.Builder(this).also {
-            it.setMessage("Delete profile \"$name\"?")
+            it.setMessage("Удалить профиль «$name»?")
 
-            it.setPositiveButton("DELETE") { _, _ ->
+            it.setPositiveButton("УДАЛИТЬ") { _, _ ->
                 val activeName = getStringPrefValue(OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
                 if (activeName == name && getBooleanPrefValue(OscPrefKey.HOME_CONNECTOR, prefs)) {
                     startVpnService(this, ACTION_VPN_DISCONNECT)
@@ -190,7 +190,7 @@ class MainActivity : AppCompatActivity() {
                 refreshList()
             }
 
-            it.setNegativeButton("CANCEL") { _, _ -> }
+            it.setNegativeButton("ОТМЕНА") { _, _ -> }
 
             it.show()
         }

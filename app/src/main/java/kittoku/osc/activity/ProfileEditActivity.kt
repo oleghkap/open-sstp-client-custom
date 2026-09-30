@@ -94,12 +94,12 @@ class ProfileEditActivity : AppCompatActivity() {
             }
 
             if (profile == null) {
-                Toast.makeText(this, "IMPORT FAILED", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "ОШИБКА ИМПОРТА", Toast.LENGTH_SHORT).show()
             } else {
                 importProfile(profile, prefs)
                 updatePreferenceView()
                 isDirty = true
-                Toast.makeText(this, "PROFILE IMPORTED", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "ПРОФИЛЬ ИМПОРТИРОВАН", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -112,7 +112,7 @@ class ProfileEditActivity : AppCompatActivity() {
                 }
             }
 
-            Toast.makeText(this, "PROFILE EXPORTED", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "ПРОФИЛЬ ЭКСПОРТИРОВАН", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -171,7 +171,7 @@ class ProfileEditActivity : AppCompatActivity() {
             }
         }
 
-        title = originalName ?: "New Profile"
+        title = originalName ?: "Новый профиль"
 
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
@@ -194,8 +194,8 @@ class ProfileEditActivity : AppCompatActivity() {
 
         TabLayoutMediator(binding.tabBar, binding.pager) { tab, position ->
             tab.text = when (position) {
-                0 -> "HOME"
-                1 -> "SETTING"
+                0 -> "ОСНОВНОЕ"
+                1 -> "НАСТРОЙКИ"
                 else -> throw NotImplementedError(position.toString())
             }
         }.attach()
@@ -249,16 +249,16 @@ class ProfileEditActivity : AppCompatActivity() {
         AlertDialog.Builder(this).also {
             it.setView(inflated)
             it.setMessage(sum(
-                "Enter the profile's name.\n",
-                "If blank, the hostname will be used.\n",
-                "If duplicated, the existing profile will be overwritten."
+                "Введите название профиля.\n",
+                "Если оставить пустым, будет использован адрес сервера.\n",
+                "Если такой профиль уже есть, он будет перезаписан."
             ))
 
-            it.setPositiveButton("SAVE") { _, _ ->
+            it.setPositiveButton("СОХРАНИТЬ") { _, _ ->
                 val finalName = editText.text.toString().ifBlank { hostname }
 
                 if (finalName.isBlank()) {
-                    Toast.makeText(this, "PROFILE NEEDS A NAME OR HOSTNAME", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "УКАЖИТЕ ИМЯ ПРОФИЛЯ ИЛИ АДРЕС СЕРВЕРА", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
 
@@ -271,7 +271,7 @@ class ProfileEditActivity : AppCompatActivity() {
                 setStringPrefValue(finalName, OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
                 originalName = finalName
 
-                Toast.makeText(this, "PROFILE SAVED", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "ПРОФИЛЬ СОХРАНЁН", Toast.LENGTH_SHORT).show()
                 isDirty = false
 
                 // this profile was already running (or the app is already connected using it):
@@ -292,7 +292,7 @@ class ProfileEditActivity : AppCompatActivity() {
                 finish()
             }
 
-            it.setNegativeButton("CANCEL") { _, _ -> }
+            it.setNegativeButton("ОТМЕНА") { _, _ -> }
 
             it.show()
         }
@@ -303,14 +303,14 @@ class ProfileEditActivity : AppCompatActivity() {
 
         AlertDialog.Builder(this).also {
             it.setMessage(
-                "Password will be also exported as plain text. If you don't want that, blank Password before exporting."
+                "Пароль также будет экспортирован открытым текстом. Если это нежелательно, очистите поле пароля перед экспортом."
             )
 
-            it.setPositiveButton("PROCEED") { _, _ ->
+            it.setPositiveButton("ПРОДОЛЖИТЬ") { _, _ ->
                 exportLauncher.launch(filename)
             }
 
-            it.setNegativeButton("CANCEL") { _, _ -> }
+            it.setNegativeButton("ОТМЕНА") { _, _ -> }
 
             it.show()
         }
@@ -318,19 +318,19 @@ class ProfileEditActivity : AppCompatActivity() {
 
     private fun showReloadDialog() {
         AlertDialog.Builder(this).also {
-            it.setMessage("Are you sure to reload the default settings?")
+            it.setMessage("Сбросить настройки по умолчанию?")
 
-            it.setPositiveButton("YES") { _, _ ->
+            it.setPositiveButton("ДА") { _, _ ->
                 importProfile(null, prefs)
 
                 updatePreferenceView()
 
                 isDirty = true
 
-                Toast.makeText(this, "DEFAULTS RELOADED", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "НАСТРОЙКИ СБРОШЕНЫ", Toast.LENGTH_SHORT).show()
             }
 
-            it.setNegativeButton("NO") { _, _ -> }
+            it.setNegativeButton("НЕТ") { _, _ -> }
 
             it.show()
         }
@@ -339,11 +339,11 @@ class ProfileEditActivity : AppCompatActivity() {
     override fun onBackPressed() {
         if (isDirty) {
             AlertDialog.Builder(this).also {
-                it.setMessage("Discard unsaved changes?")
+                it.setMessage("Отменить несохранённые изменения?")
 
-                it.setPositiveButton("DISCARD") { _, _ -> super.onBackPressed() }
+                it.setPositiveButton("НЕ СОХРАНЯТЬ") { _, _ -> super.onBackPressed() }
 
-                it.setNegativeButton("KEEP EDITING") { _, _ -> }
+                it.setNegativeButton("ПРОДОЛЖИТЬ РЕДАКТИРОВАНИЕ") { _, _ -> }
 
                 it.show()
             }
