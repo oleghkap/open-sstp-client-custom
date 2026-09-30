@@ -114,7 +114,7 @@ internal class SstpVpnService : VpnService() {
                 // controller must not stop this service in the process (shouldStopService =
                 // false), otherwise it would kill the brand new connection started right after.
                 controller?.also { old ->
-                    runBlocking { old.kill(false, null, shouldStopService = false).join() }
+                    runBlocking { old.kill(false, shouldStopService = false).join() }
                 }
 
                 beForegrounded()
@@ -320,7 +320,7 @@ internal class SstpVpnService : VpnService() {
         logWriter?.close()
         logWriter = null
 
-        controller?.kill(false, null)
+        controller?.kill(false)
         controller = null
 
         scope.cancel()
