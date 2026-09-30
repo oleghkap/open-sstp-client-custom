@@ -194,7 +194,7 @@ internal class SstpVpnService : VpnService() {
                     val life = it - 1
                     setIntPrefValue(life, OscPrefKey.RECONNECTION_LIFE, prefs)
 
-                    val message = "Reconnection will be tried (LIFE = $life)"
+                    val message = "Будет предпринята попытка переподключения (осталось: $life)"
                     notifyMessage(message, NOTIFICATION_RECONNECT_ID, NOTIFICATION_RECONNECT_CHANNEL)
                     logWriter?.report(message)
                 }
@@ -266,17 +266,17 @@ internal class SstpVpnService : VpnService() {
             if (trafficText != null) {
                 it.setContentText(trafficText)
             }
-            it.addAction(R.drawable.ic_baseline_close_24, "DISCONNECT", pendingIntent)
+            it.addAction(R.drawable.ic_baseline_close_24, "ОТКЛЮЧИТЬ", pendingIntent)
         }.build()
     }
 
     private fun formatBytes(bytes: Long): String {
-        if (bytes < 1024) return "$bytes B"
+        if (bytes < 1024) return "$bytes Б"
         val kb = bytes / 1024.0
-        if (kb < 1024) return String.format(Locale.getDefault(), "%.1f KB", kb)
+        if (kb < 1024) return String.format(Locale.getDefault(), "%.1f КБ", kb)
         val mb = kb / 1024.0
-        if (mb < 1024) return String.format(Locale.getDefault(), "%.1f MB", mb)
-        return String.format(Locale.getDefault(), "%.2f GB", mb / 1024.0)
+        if (mb < 1024) return String.format(Locale.getDefault(), "%.1f МБ", mb)
+        return String.format(Locale.getDefault(), "%.2f ГБ", mb / 1024.0)
     }
 
     internal fun notifyMessage(message: String, id: Int, channel: String) {
