@@ -56,13 +56,16 @@ internal class Controller(internal val bridge: SharedBridge) {
 
     private val mutex = Mutex()
 
-    private val isReconnectionEnabled = getBooleanPrefValue(OscPrefKey.RECONNECTION_ENABLED, bridge.prefs)
+    // RECONNECTION_ENABLED means "limit the number of reconnection attempts". When it's off,
+    // reconnection is always available (retries forever until it connects); when on, it's only
+    // available while RECONNECTION_LIFE (the remaining-attempts counter) is still positive.
+    private val isReconnectionLimited = getBooleanPrefValue(OscPrefKey.RECONNECTION_ENABLED, bridge.prefs)
     private val isReconnectionAvailable: Boolean
-        get() = getIntPrefValue(OscPrefKey.RECONNECTION_LIFE, bridge.prefs) > 0
+        get() = !isReconnectionLimited || getIntPrefValue(OscPrefKey.RECONNECTION_LIFE, bridge.prefs) > 0
 
     private fun attachHandler() {
         bridge.handler = CoroutineExceptionHandler { _, throwable ->
-            kill(isReconnectionEnabled) {
+            kill(isReconnectionRequested = true) {
                 val header = "OSC: ERR_UNEXPECTED"
                 bridge.service.logWriter?.report(header + "\n" + throwable.stackTraceToString())
                 bridge.service.notifyError(header)
@@ -204,9 +207,9 @@ internal class Controller(internal val bridge: SharedBridge) {
 
             observer = NetworkObserver(bridge)
 
-            if (isReconnectionEnabled) {
-                resetReconnectionLife(bridge.prefs)
-            }
+            // a successful connection refills the remaining-attempts counter, whether or not
+            // the limit is currently on (harmless either way; only read when it is)
+            resetReconnectionLife(bridge.prefs)
 
 
             expectProceeded(Where.SSTP_CONTROL, null) // wait ERR_ message until disconnection
@@ -234,7 +237,7 @@ internal class Controller(internal val bridge: SharedBridge) {
             SSTP_MESSAGE_TYPE_CALL_ABORT
         }
 
-        kill(isReconnectionEnabled) {
+        kill(isReconnectionRequested = true) {
             sstpClient?.sendLastPacket(lastPacketType)
 
             val header = "${received.from.name}: ${received.result.name}"
