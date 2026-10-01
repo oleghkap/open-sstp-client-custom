@@ -9,7 +9,6 @@ import android.net.VpnService
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.widget.EditText
-import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -129,16 +128,28 @@ class MainActivity : AppCompatActivity() {
                 onToggleProfile(name, isChecked, switch)
             }
 
-            row.findViewById<ImageButton>(R.id.profileRename).setOnClickListener {
-                showRenameDialog(name)
-            }
-            row.findViewById<ImageButton>(R.id.profileDelete).setOnClickListener {
-                confirmDelete(name)
-            }
+            // single tap on the name opens the editor; the status text underneath is not
+            // clickable, and a long press anywhere on the row brings up rename/edit/delete
+            row.findViewById<TextView>(R.id.profileName).setOnClickListener { openEditor(name) }
+            row.setOnLongClickListener { showProfileActionsDialog(name); true }
 
-            row.setOnClickListener { openEditor(name) }
             binding.profileListContainer.addView(row)
         }
+    }
+
+    private fun showProfileActionsDialog(name: String) {
+        val options = arrayOf("Переименовать", "Редактировать", "Удалить")
+
+        AlertDialog.Builder(this)
+            .setTitle(name)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> showRenameDialog(name)
+                    1 -> openEditor(name)
+                    2 -> confirmDelete(name)
+                }
+            }
+            .show()
     }
 
     private fun openEditor(name: String?) {
