@@ -187,17 +187,24 @@ internal class SstpVpnService : VpnService() {
         logWriter = LogWriter(stream)
     }
 
+    // RECONNECTION_ENABLED now means "limit the number of attempts": off = retry forever until
+    // it connects (matching the requested "VPN Client Pro" behaviour), on = stop after
+    // RECONNECTION_COUNT tries.
     internal fun launchJobReconnect() {
         jobReconnect = scope.launch {
             try {
-                getIntPrefValue(OscPrefKey.RECONNECTION_LIFE, prefs).also {
-                    val life = it - 1
-                    setIntPrefValue(life, OscPrefKey.RECONNECTION_LIFE, prefs)
+                val isLimited = getBooleanPrefValue(OscPrefKey.RECONNECTION_ENABLED, prefs)
 
-                    val message = "Будет предпринята попытка переподключения (осталось: $life)"
-                    notifyMessage(message, NOTIFICATION_RECONNECT_ID, NOTIFICATION_RECONNECT_CHANNEL)
-                    logWriter?.report(message)
+                val message = if (isLimited) {
+                    val life = getIntPrefValue(OscPrefKey.RECONNECTION_LIFE, prefs) - 1
+                    setIntPrefValue(life, OscPrefKey.RECONNECTION_LIFE, prefs)
+                    "Будет предпринята попытка переподключения (осталось: $life)"
+                } else {
+                    "Будет предпринята попытка переподключения"
                 }
+
+                notifyMessage(message, NOTIFICATION_RECONNECT_ID, NOTIFICATION_RECONNECT_CHANNEL)
+                logWriter?.report(message)
 
                 delay(getIntPrefValue(OscPrefKey.RECONNECTION_INTERVAL, prefs) * 1000L)
 
@@ -211,13 +218,13 @@ internal class SstpVpnService : VpnService() {
 
     private fun beForegrounded() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            arrayOf(
-                NOTIFICATION_ERROR_CHANNEL,
-                NOTIFICATION_RECONNECT_CHANNEL,
-                NOTIFICATION_DISCONNECT_CHANNEL,
-                NOTIFICATION_CERTIFICATE_CHANNEL,
-            ).map {
-                NotificationChannel(it, it, NotificationManager.IMPORTANCE_DEFAULT)
+            listOf(
+                NOTIFICATION_ERROR_CHANNEL to "Ошибки",
+                NOTIFICATION_RECONNECT_CHANNEL to "Переподключение",
+                NOTIFICATION_DISCONNECT_CHANNEL to "Статус соединения",
+                NOTIFICATION_CERTIFICATE_CHANNEL to "Сертификаты",
+            ).map { (id, name) ->
+                NotificationChannel(id, name, NotificationManager.IMPORTANCE_DEFAULT)
             }.also {
                 notificationManager.createNotificationChannels(it)
             }
@@ -261,6 +268,10 @@ internal class SstpVpnService : VpnService() {
             it.priority = NotificationCompat.PRIORITY_DEFAULT
             it.setOngoing(true)
             it.setAutoCancel(false)
+            // this notification is rebuilt and re-posted every couple seconds to refresh the
+            // traffic counters; without this flag every single update would re-alert (sound,
+            // vibrate, heads-up) exactly as if it were a brand new notification
+            it.setOnlyAlertOnce(true)
             it.setSmallIcon(R.drawable.ic_baseline_vpn_lock_24)
             it.setContentTitle("$profileName — $stateLabel")
             if (trafficText != null) {
