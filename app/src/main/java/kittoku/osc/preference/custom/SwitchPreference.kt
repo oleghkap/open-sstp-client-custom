@@ -80,7 +80,7 @@ internal class RouteDoShowBackgroundAppsPreference(context: Context, attrs: Attr
 internal class ReconnectionEnabledPreference(context: Context, attrs: AttributeSet) : SwitchPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.RECONNECTION_ENABLED
     override val parentKey: OscPrefKey? = null
-    override val preferenceTitle = "Включить переподключение"
+    override val preferenceTitle = "Ограничивать количество попыток"
 }
 
 internal class LogDoSaveLogPreference(context: Context, attrs: AttributeSet) : SwitchPreference(context, attrs) {
