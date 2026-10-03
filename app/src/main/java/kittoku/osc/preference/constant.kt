@@ -14,6 +14,14 @@ internal enum class OscPrefKey {
     HOME_STATUS,
     ACTIVE_PROFILE_NAME,
     AUTO_CONNECT_ENABLED,
+    AUTO_CONNECT_DISABLED,
+    AUTO_CONNECT_ON_MOBILE,
+    AUTO_DISCONNECT_ON_MOBILE_LOSS,
+    AUTO_CONNECT_ON_WIFI_INCLUDE,
+    AUTO_CONNECT_WIFI_INCLUDE_SSIDS,
+    AUTO_CONNECT_ON_WIFI_EXCLUDE,
+    AUTO_CONNECT_WIFI_EXCLUDE_SSIDS,
+    AUTO_DISCONNECT_ON_WIFI_LOSS,
     SSL_PORT,
     SSL_VERSION,
     SSL_DO_VERIFY,
@@ -64,6 +72,12 @@ internal val DEFAULT_BOOLEAN_MAP = mapOf(
     OscPrefKey.ROOT_STATE to false,
     OscPrefKey.HOME_CONNECTOR to false,
     OscPrefKey.AUTO_CONNECT_ENABLED to false,
+    OscPrefKey.AUTO_CONNECT_DISABLED to false,
+    OscPrefKey.AUTO_CONNECT_ON_MOBILE to false,
+    OscPrefKey.AUTO_DISCONNECT_ON_MOBILE_LOSS to false,
+    OscPrefKey.AUTO_CONNECT_ON_WIFI_INCLUDE to false,
+    OscPrefKey.AUTO_CONNECT_ON_WIFI_EXCLUDE to false,
+    OscPrefKey.AUTO_DISCONNECT_ON_WIFI_LOSS to false,
     OscPrefKey.SSL_DO_VERIFY to true,
     OscPrefKey.SSL_DO_SPECIFY_CERT to false,
     OscPrefKey.SSL_DO_SELECT_SUITES to false,
@@ -82,7 +96,8 @@ internal val DEFAULT_BOOLEAN_MAP = mapOf(
     OscPrefKey.ROUTE_DO_ADD_CUSTOM_ROUTES to false,
     OscPrefKey.ROUTE_DO_ENABLE_APP_BASED_RULE to false,
     OscPrefKey.ROUTE_DO_SHOW_BACKGROUND_APPS to false,
-    OscPrefKey.RECONNECTION_ENABLED to true,
+    // "limit the number of reconnection attempts": off = retry forever until connected
+    OscPrefKey.RECONNECTION_ENABLED to false,
     OscPrefKey.LOG_DO_SAVE_LOG to false
 )
 
@@ -129,6 +144,8 @@ internal val DEFAULT_SET_MAP = mapOf(
     OscPrefKey.SSL_SUITES to EMPTY_SET,
     OscPrefKey.PPP_AUTH_PROTOCOLS to setOf(AUTH_PROTOCOl_PAP, AUTH_PROTOCOL_MSCHAPv2),
     OscPrefKey.ROUTE_SELECTED_APPS to EMPTY_SET,
+    OscPrefKey.AUTO_CONNECT_WIFI_INCLUDE_SSIDS to EMPTY_SET,
+    OscPrefKey.AUTO_CONNECT_WIFI_EXCLUDE_SSIDS to EMPTY_SET,
 )
 
 internal val DEFAULT_URI_MAP = mapOf<OscPrefKey, Uri?>(
