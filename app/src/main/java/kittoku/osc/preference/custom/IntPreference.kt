@@ -46,14 +46,16 @@ internal class PPPAuthTimeoutPreference(context: Context, attrs: AttributeSet) :
     override val preferenceTitle = "Тайм-аут (сек)"
 }
 
+// the number of attempts only matters while attempts are limited
 internal class ReconnectionCountPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.RECONNECTION_COUNT
     override val parentKey = OscPrefKey.RECONNECTION_ENABLED
     override val preferenceTitle = "Количество попыток"
 }
 
+// the pause between attempts applies whether or not the number of attempts is limited
 internal class ReconnectionIntervalPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.RECONNECTION_INTERVAL
-    override val parentKey = OscPrefKey.RECONNECTION_ENABLED
+    override val parentKey: OscPrefKey? = null
     override val preferenceTitle = "Интервал между попытками (сек)"
 }
