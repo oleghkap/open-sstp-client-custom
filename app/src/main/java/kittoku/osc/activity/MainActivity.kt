@@ -29,6 +29,7 @@ import kittoku.osc.preference.toastInvalidSetting
 import kittoku.osc.service.ACTION_VPN_CONNECT
 import kittoku.osc.service.ACTION_VPN_DISCONNECT
 import kittoku.osc.service.startVpnService
+import kittoku.osc.service.syncAutoConnectService
 
 class MainActivity : AppCompatActivity() {
     private lateinit var prefs: SharedPreferences
@@ -71,6 +72,9 @@ class MainActivity : AppCompatActivity() {
         ) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
+
+        // make sure the auto-connect network watcher is running whenever its rules are on
+        syncAutoConnectService(this, fromUi = true)
     }
 
     override fun onResume() {
