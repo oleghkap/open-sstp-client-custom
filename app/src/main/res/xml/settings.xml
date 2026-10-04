@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-    <PreferenceCategory android:title="Общие">
+    <PreferenceCategory android:title="Авто-подключение">
+        <kittoku.osc.preference.custom.AutoConnectDisabledPreference android:key="AUTO_CONNECT_DISABLED"/>
         <kittoku.osc.preference.custom.AutoConnectEnabledPreference android:key="AUTO_CONNECT_ENABLED"/>
+        <kittoku.osc.preference.custom.AutoConnectOnMobilePreference android:key="AUTO_CONNECT_ON_MOBILE"/>
+        <kittoku.osc.preference.custom.AutoDisconnectOnMobileLossPreference android:key="AUTO_DISCONNECT_ON_MOBILE_LOSS"/>
+        <kittoku.osc.preference.custom.AutoConnectOnWifiIncludePreference android:key="AUTO_CONNECT_ON_WIFI_INCLUDE"/>
+        <kittoku.osc.preference.custom.AutoConnectWifiIncludeSsidsPreference android:key="AUTO_CONNECT_WIFI_INCLUDE_SSIDS"/>
+        <kittoku.osc.preference.custom.AutoConnectOnWifiExcludePreference android:key="AUTO_CONNECT_ON_WIFI_EXCLUDE"/>
+        <kittoku.osc.preference.custom.AutoConnectWifiExcludeSsidsPreference android:key="AUTO_CONNECT_WIFI_EXCLUDE_SSIDS"/>
+        <kittoku.osc.preference.custom.AutoDisconnectOnWifiLossPreference android:key="AUTO_DISCONNECT_ON_WIFI_LOSS"/>
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Слой SSL">
