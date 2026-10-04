@@ -1,9 +1,16 @@
 package kittoku.osc.activity
 
+import android.Manifest
 import android.app.Activity
+import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
 import android.net.VpnService
+import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.text.InputType
 import android.view.Menu
 import android.view.MenuItem
@@ -12,6 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceFragmentCompat
@@ -38,18 +46,33 @@ import kittoku.osc.preference.importProfile
 import kittoku.osc.preference.serializeProfile
 import kittoku.osc.preference.toastInvalidSetting
 import kittoku.osc.service.ACTION_VPN_CONNECT
+import kittoku.osc.service.hasLocationPermission
 import kittoku.osc.service.startVpnService
+import kittoku.osc.service.syncAutoConnectService
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 
 internal const val EXTRA_PROFILE_NAME = "kittoku.osc.PROFILE_NAME"
+
+// app-wide auto-connect settings: changing them never makes the profile being edited "dirty"
+private val AUTO_CONNECT_KEYS = setOf(
+    OscPrefKey.AUTO_CONNECT_DISABLED.name,
+    OscPrefKey.AUTO_CONNECT_ENABLED.name,
+    OscPrefKey.AUTO_CONNECT_ON_MOBILE.name,
+    OscPrefKey.AUTO_DISCONNECT_ON_MOBILE_LOSS.name,
+    OscPrefKey.AUTO_CONNECT_ON_WIFI_INCLUDE.name,
+    OscPrefKey.AUTO_CONNECT_WIFI_INCLUDE_SSIDS.name,
+    OscPrefKey.AUTO_CONNECT_ON_WIFI_EXCLUDE.name,
+    OscPrefKey.AUTO_CONNECT_WIFI_EXCLUDE_SSIDS.name,
+    OscPrefKey.AUTO_DISCONNECT_ON_WIFI_LOSS.name,
+)
 
 private val NON_DIRTYING_KEYS = setOf(
     OscPrefKey.ROOT_STATE.name,
     OscPrefKey.HOME_CONNECTOR.name,
     OscPrefKey.HOME_STATUS.name,
     OscPrefKey.ACTIVE_PROFILE_NAME.name,
-)
+) + AUTO_CONNECT_KEYS
 
 class ProfileEditActivity : AppCompatActivity() {
     private lateinit var prefs: SharedPreferences
@@ -68,7 +91,9 @@ class ProfileEditActivity : AppCompatActivity() {
     private var saveCompleted = false
 
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (!isRestoring && key != null && key !in NON_DIRTYING_KEYS) {
+        if (key != null && key in AUTO_CONNECT_KEYS) {
+            onAutoConnectSettingChanged(key)
+        } else if (!isRestoring && key != null && key !in NON_DIRTYING_KEYS) {
             setDirty(true)
         }
     }
@@ -78,6 +103,14 @@ class ProfileEditActivity : AppCompatActivity() {
             startVpnService(this, ACTION_VPN_CONNECT)
         }
     }
+
+    private val locationLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { onLocationPermissionAnswered() }
+
+    private val backgroundLocationLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { askBatteryExemption() }
 
     private val importLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@registerForActivityResult
@@ -117,6 +150,109 @@ class ProfileEditActivity : AppCompatActivity() {
         if (isDirty == value) return
         isDirty = value
         invalidateOptionsMenu()
+    }
+
+    // --- auto-connect: keep the network watcher in step with the settings and get the
+    // permissions the rules need ---
+
+    private fun onAutoConnectSettingChanged(key: String) {
+        syncAutoConnectService(this, fromUi = true)
+
+        // only switching something ON needs permissions; the master "off" switch needs none
+        if (prefs.all[key] != true || key == OscPrefKey.AUTO_CONNECT_DISABLED.name) return
+
+        if (
+            key == OscPrefKey.AUTO_CONNECT_ON_WIFI_INCLUDE.name ||
+            key == OscPrefKey.AUTO_CONNECT_ON_WIFI_EXCLUDE.name
+        ) {
+            requestLocationAccess()
+        } else {
+            askBatteryExemption()
+        }
+    }
+
+    // Android only shows the Wi-Fi network name to apps that may see the location
+    private fun requestLocationAccess() {
+        if (hasLocationPermission(this)) {
+            onLocationPermissionAnswered()
+        } else {
+            locationLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION))
+        }
+    }
+
+    private fun onLocationPermissionAnswered() {
+        if (!hasLocationPermission(this)) {
+            Toast.makeText(
+                this,
+                "Без доступа к геопозиции имя сети WiFi определить нельзя",
+                Toast.LENGTH_LONG,
+            ).show()
+            askBatteryExemption()
+            return
+        }
+
+        val hasBackground = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+        when {
+            hasBackground -> askBatteryExemption()
+
+            Build.VERSION.SDK_INT == Build.VERSION_CODES.Q ->
+                backgroundLocationLauncher.launch(
+                    arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION),
+                )
+
+            // from Android 11 the "always" location access can only be granted in system settings
+            else -> AlertDialog.Builder(this)
+                .setTitle("Геопозиция в фоне")
+                .setMessage(
+                    "Чтобы определять сеть WiFi при закрытом приложении, откройте " +
+                        "«Разрешения» → «Геопозиция» и выберите «Разрешить всегда».",
+                )
+                .setPositiveButton("ОТКРЫТЬ НАСТРОЙКИ") { _, _ ->
+                    startActivity(
+                        Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.fromParts("package", packageName, null),
+                        ),
+                    )
+                }
+                .setNegativeButton("ПОЗЖЕ") { _, _ -> askBatteryExemption() }
+                .show()
+        }
+    }
+
+    // without this the system may stop the app in the background and auto-connect stops working
+    private fun askBatteryExemption() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (powerManager.isIgnoringBatteryOptimizations(packageName)) return
+
+        AlertDialog.Builder(this)
+            .setTitle("Работа в фоне")
+            .setMessage(
+                "Чтобы авто-подключение работало при закрытом приложении, разрешите " +
+                    "приложению работать в фоне без ограничений батареи. Расход заряда " +
+                    "при этом остаётся минимальным.",
+            )
+            .setPositiveButton("РАЗРЕШИТЬ") { _, _ ->
+                try {
+                    startActivity(
+                        Intent(
+                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            Uri.parse("package:$packageName"),
+                        ),
+                    )
+                } catch (_: Exception) {
+                    startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                }
+            }
+            .setNegativeButton("ПОЗЖЕ", null)
+            .show()
     }
 
     private fun updatePreferenceView() {
