@@ -207,6 +207,7 @@ internal class AutoConnectService : Service() {
             )
         }
 
+        // the channel is IMPORTANCE_MIN, so this notification is already silent and collapsed
         return NotificationCompat.Builder(this, AUTO_CONNECT_CHANNEL)
             .setSmallIcon(R.drawable.ic_baseline_vpn_lock_24)
             .setContentTitle("Автоподключение включено")
@@ -214,7 +215,6 @@ internal class AutoConnectService : Service() {
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setSilent(true)
             .build()
     }
 
