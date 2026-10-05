@@ -46,6 +46,32 @@ private const val SSID_MAX_RETRIES = 3
 // before a mobile-data connect is attempted
 private const val FALLBACK_DELAY = 3_000L
 
+// a rule never fires the same action twice within this window: protects against a flapping
+// network turning one rule into an endless connect/disconnect loop
+private const val ACTION_COOLDOWN = 15_000L
+
+// how long after a network change a dropped tunnel is blamed on that change
+private const val NETWORK_CHANGE_WINDOW = 15_000L
+
+
+// shared with the VPN controller: while the watcher runs, a tunnel that dies right after the
+// phone switched networks is left to the auto-connect rules instead of being re-created blindly
+internal object AutoConnectState {
+    @Volatile
+    var isWatching = false
+
+    @Volatile
+    private var lastNetworkEventAt = 0L
+
+    fun markNetworkEvent() {
+        lastNetworkEventAt = SystemClock.elapsedRealtime()
+    }
+
+    fun isNetworkChangeRecent(): Boolean {
+        return isWatching && SystemClock.elapsedRealtime() - lastNetworkEventAt < NETWORK_CHANGE_WINDOW
+    }
+}
+
 
 internal fun isAutoConnectRequired(prefs: SharedPreferences): Boolean {
     if (getBooleanPrefValue(OscPrefKey.AUTO_CONNECT_DISABLED, prefs)) return false
@@ -116,22 +142,29 @@ internal class AutoConnectService : Service() {
     private var isRegistered = false
     private var ignoreEventsUntil = 0L
 
+    private var lastConnectAt = -ACTION_COOLDOWN
+    private var lastDisconnectAt = -ACTION_COOLDOWN
+
     private val wifiCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
+            AutoConnectState.markNetworkEvent()
             handler.post { onWifiAvailable(network) }
         }
 
         override fun onLost(network: Network) {
+            AutoConnectState.markNetworkEvent()
             handler.post { onWifiLost(network) }
         }
     }
 
     private val cellCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
+            AutoConnectState.markNetworkEvent()
             handler.post { onCellAvailable(network) }
         }
 
         override fun onLost(network: Network) {
+            AutoConnectState.markNetworkEvent()
             handler.post { onCellLost(network) }
         }
     }
@@ -155,12 +188,14 @@ internal class AutoConnectService : Service() {
 
             registerCallbacks()
             isRegistered = true
+            AutoConnectState.isWatching = true
         }
 
         return START_STICKY
     }
 
     override fun onDestroy() {
+        AutoConnectState.isWatching = false
         handler.removeCallbacksAndMessages(null)
 
         if (isRegistered) {
@@ -177,14 +212,17 @@ internal class AutoConnectService : Service() {
     }
 
     private fun registerCallbacks() {
+        // the VPN network itself must never be mistaken for a Wi-Fi / mobile network
         val wifiRequest = NetworkRequest.Builder()
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
             .build()
 
         val cellRequest = NetworkRequest.Builder()
             .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
             .build()
 
         try {
@@ -224,14 +262,25 @@ internal class AutoConnectService : Service() {
 
     private fun isTunnelRunning() = getBooleanPrefValue(OscPrefKey.ROOT_STATE, prefs)
 
+    // each rule does exactly one thing: start a connection, or close it. Nothing here ever
+    // undoes the opposite network change.
     private fun connectNow() {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastConnectAt < ACTION_COOLDOWN) return
+        if (isTunnelRunning()) return
+
+        lastConnectAt = now
         connectLastProfile(this, prefs)
     }
 
     private fun disconnectNow() {
-        if (isTunnelRunning()) {
-            startVpnService(this, ACTION_VPN_DISCONNECT)
-        }
+        if (!isTunnelRunning()) return
+
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastDisconnectAt < ACTION_COOLDOWN) return
+
+        lastDisconnectAt = now
+        startVpnService(this, ACTION_VPN_DISCONNECT)
     }
 
     // --- Wi-Fi ---
@@ -273,14 +322,19 @@ internal class AutoConnectService : Service() {
 
         if (isMasterOff()) return
 
+        // "Отключаться при отключении от сетей WiFi": only closes the connection
         if (getBooleanPrefValue(OscPrefKey.AUTO_DISCONNECT_ON_WIFI_LOSS, prefs)) {
             disconnectNow()
         }
 
-        // if the phone fell back to mobile data, the mobile rule decides what happens next
-        handler.postDelayed({
-            if (wifiNetwork == null && cellNetwork != null) connectOnMobileIfEnabled()
-        }, FALLBACK_DELAY)
+        // moving from Wi-Fi to mobile data counts as "connecting to a mobile network" even when
+        // the mobile network was already up in the background (so it announces nothing new).
+        // This only matters if the mobile-connect rule itself is on.
+        if (getBooleanPrefValue(OscPrefKey.AUTO_CONNECT_ON_MOBILE, prefs)) {
+            handler.postDelayed({
+                if (wifiNetwork == null && cellNetwork != null) connectOnMobileIfEnabled()
+            }, FALLBACK_DELAY)
+        }
     }
 
     // --- Mobile data ---
@@ -311,6 +365,8 @@ internal class AutoConnectService : Service() {
 
         if (isMasterOff()) return
 
+        // "Отключаться при отключении от мобильных сетей": only closes the connection, and only when the
+        // phone is really left without a mobile network (not when it merely moved to Wi-Fi first)
         if (wifiNetwork == null && getBooleanPrefValue(OscPrefKey.AUTO_DISCONNECT_ON_MOBILE_LOSS, prefs)) {
             disconnectNow()
         }

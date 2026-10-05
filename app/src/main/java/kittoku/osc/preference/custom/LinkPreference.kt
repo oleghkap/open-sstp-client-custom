@@ -41,6 +41,6 @@ internal abstract class LinkPreference(context: Context, attrs: AttributeSet) : 
 
 internal class LinkOscPreference(context: Context, attrs: AttributeSet) : LinkPreference(context, attrs) {
     override val preferenceTitle = "Страница проекта на GitHub"
-    override val preferenceSummary = "github.com/kittoku/Open-SSTP-Client"
-    override val url = "https://github.com/kittoku/Open-SSTP-Client"
+    override val preferenceSummary = "github.com/oleghkap/open-sstp-client-custom"
+    override val url = "https://github.com/oleghkap/open-sstp-client-custom"
 }

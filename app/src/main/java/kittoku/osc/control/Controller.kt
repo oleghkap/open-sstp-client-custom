@@ -26,6 +26,7 @@ import kittoku.osc.preference.OscPrefKey
 import kittoku.osc.preference.accessor.getBooleanPrefValue
 import kittoku.osc.preference.accessor.getIntPrefValue
 import kittoku.osc.preference.accessor.resetReconnectionLife
+import kittoku.osc.service.AutoConnectState
 import kittoku.osc.terminal.SSL_REQUEST_INTERVAL
 import kittoku.osc.unit.sstp.SSTP_MESSAGE_TYPE_CALL_ABORT
 import kittoku.osc.unit.sstp.SSTP_MESSAGE_TYPE_CALL_DISCONNECT
@@ -56,6 +57,10 @@ internal class Controller(internal val bridge: SharedBridge) {
 
     private val mutex = Mutex()
 
+    // true once the tunnel was fully up (as opposed to still being negotiated)
+    @Volatile
+    private var wasEstablished = false
+
     // RECONNECTION_ENABLED means "limit the number of reconnection attempts". When it's off,
     // reconnection is always available (retries forever until it connects); when on, it's only
     // available while RECONNECTION_LIFE (the remaining-attempts counter) is still positive.
@@ -63,9 +68,17 @@ internal class Controller(internal val bridge: SharedBridge) {
     private val isReconnectionAvailable: Boolean
         get() = !isReconnectionLimited || getIntPrefValue(OscPrefKey.RECONNECTION_LIFE, bridge.prefs) > 0
 
+    // Failing to bring a tunnel up is always retried. A tunnel that was up and then died right
+    // after the phone changed networks is NOT silently re-created while the auto-connect rules
+    // are on: switching networks must only do what the rules say (e.g. "connect on mobile"),
+    // not bounce the connection back on its own.
+    private fun shouldReconnect(): Boolean {
+        return !(wasEstablished && AutoConnectState.isNetworkChangeRecent())
+    }
+
     private fun attachHandler() {
         bridge.handler = CoroutineExceptionHandler { _, throwable ->
-            kill(isReconnectionRequested = true) {
+            kill(isReconnectionRequested = shouldReconnect()) {
                 val header = "OSC: ERR_UNEXPECTED"
                 bridge.service.logWriter?.report(header + "\n" + throwable.stackTraceToString())
                 bridge.service.notifyError(header)
@@ -198,6 +211,8 @@ internal class Controller(internal val bridge: SharedBridge) {
                 return@launch
             }
 
+            wasEstablished = true
+
 
             OutgoingManager(bridge).also {
                 it.launchJobMain()
@@ -237,7 +252,7 @@ internal class Controller(internal val bridge: SharedBridge) {
             SSTP_MESSAGE_TYPE_CALL_ABORT
         }
 
-        kill(isReconnectionRequested = true) {
+        kill(isReconnectionRequested = shouldReconnect()) {
             sstpClient?.sendLastPacket(lastPacketType)
 
             val header = "${received.from.name}: ${received.result.name}"
