@@ -4,6 +4,12 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.serialization' version '2.4.10'
 }
 
+// The launcher icon is kept in the repository as base64 text (app/icon_assets) and turned back
+// into real image files at build time, into a generated resource folder that is added to the
+// app's resources below.
+def iconAssetsDir = file('icon_assets')
+def generatedIconRes = layout.buildDirectory.dir('generated/icon_res').get().asFile
+
 android {
     namespace 'kittoku.osc'
 
@@ -26,6 +32,12 @@ android {
         }
     }
 
+    sourceSets {
+        main {
+            res.srcDir generatedIconRes
+        }
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -38,6 +50,33 @@ android {
     buildFeatures {
         viewBinding true
         buildConfig true
+    }
+}
+
+tasks.register('decodeIconAssets') {
+    inputs.dir(iconAssetsDir)
+    outputs.dir(generatedIconRes)
+
+    doLast {
+        def outDir = new File(generatedIconRes, 'mipmap-xxxhdpi')
+        outDir.mkdirs()
+
+        def decode = { String source, String target ->
+            def text = new File(iconAssetsDir, source).text.replaceAll('\\s', '')
+            new File(outDir, target).bytes = Base64.getDecoder().decode(text)
+        }
+
+        decode('ic_launcher.webp.b64', 'ic_launcher.webp')
+        decode('ic_launcher.webp.b64', 'ic_launcher_round.webp')
+        decode('ic_launcher_foreground.webp.b64', 'ic_launcher_foreground.webp')
+    }
+}
+
+// everything that builds the app starts from preBuild, so the icon files exist before the
+// resources are merged
+tasks.configureEach { task ->
+    if (task.name == 'preBuild') {
+        task.dependsOn('decodeIconAssets')
     }
 }
 
