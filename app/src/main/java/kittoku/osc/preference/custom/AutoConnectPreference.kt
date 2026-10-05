@@ -15,6 +15,12 @@ internal class AutoConnectDisabledPreference(context: Context, attrs: AttributeS
     override val preferenceTitle = "Выключить авто-подключение"
 }
 
+internal class AutoConnectOnBootPreference(context: Context, attrs: AttributeSet) : SwitchPreference(context, attrs) {
+    override val oscPrefKey = OscPrefKey.AUTO_CONNECT_ENABLED
+    override val parentKey: OscPrefKey? = null
+    override val preferenceTitle = "Автоподключение при загрузке системы"
+}
+
 internal class AutoConnectOnMobilePreference(context: Context, attrs: AttributeSet) : SwitchPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.AUTO_CONNECT_ON_MOBILE
     override val parentKey: OscPrefKey? = null

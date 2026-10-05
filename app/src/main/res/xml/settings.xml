@@ -2,7 +2,7 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
     <PreferenceCategory android:title="Авто-подключение">
         <kittoku.osc.preference.custom.AutoConnectDisabledPreference android:key="AUTO_CONNECT_DISABLED"/>
-        <kittoku.osc.preference.custom.AutoConnectEnabledPreference android:key="AUTO_CONNECT_ENABLED"/>
+        <kittoku.osc.preference.custom.AutoConnectOnBootPreference android:key="AUTO_CONNECT_ENABLED"/>
         <kittoku.osc.preference.custom.AutoConnectOnMobilePreference android:key="AUTO_CONNECT_ON_MOBILE"/>
         <kittoku.osc.preference.custom.AutoDisconnectOnMobileLossPreference android:key="AUTO_DISCONNECT_ON_MOBILE_LOSS"/>
         <kittoku.osc.preference.custom.AutoConnectOnWifiIncludePreference android:key="AUTO_CONNECT_ON_WIFI_INCLUDE"/>
@@ -12,7 +12,7 @@
         <kittoku.osc.preference.custom.AutoDisconnectOnWifiLossPreference android:key="AUTO_DISCONNECT_ON_WIFI_LOSS"/>
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Слой SSL">
+    <PreferenceCategory android:title="Параметры SSL">
         <kittoku.osc.preference.custom.SSLPortPreference android:key="SSL_PORT"/>
         <kittoku.osc.preference.custom.SSLVersionPreference android:key="SSL_VERSION"/>
         <kittoku.osc.preference.custom.SSLDoVerifyPreference android:key="SSL_DO_VERIFY"/>
@@ -32,7 +32,7 @@
         <kittoku.osc.preference.custom.ProxyPasswordPreference android:key="PROXY_PASSWORD"/>
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Слой PPP">
+    <PreferenceCategory android:title="Параметры PPP">
         <kittoku.osc.preference.custom.PPPMruManualPreference android:key="PPP_MRU_MANUAL"/>
         <kittoku.osc.preference.custom.PPPMruPreference android:key="PPP_MRU"/>
         <kittoku.osc.preference.custom.PPPMtuManualPreference android:key="PPP_MTU_MANUAL"/>

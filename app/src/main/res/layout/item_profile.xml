@@ -5,7 +5,6 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="?attr/selectableItemBackground"
     android:paddingStart="20dp"
     android:paddingEnd="20dp"
     android:paddingTop="16dp"
@@ -17,6 +16,7 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
+        <!-- the name is the only interactive part: tap = open the editor, long press = menu -->
         <TextView
             android:id="@+id/profileName"
             android:layout_width="0dp"
@@ -26,9 +26,9 @@
             android:textStyle="bold"
             android:ellipsize="end"
             android:maxLines="1"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
+            android:background="?attr/selectableItemBackground"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
             tools:text="My VPN Profile" />
 
         <com.google.android.material.switchmaterial.SwitchMaterial
@@ -38,15 +38,27 @@
 
     </LinearLayout>
 
+    <!-- statistics: plain, non-clickable text under the name -->
+    <TextView
+        android:id="@+id/profileStatusTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="Статистика подключений"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:textColor="#888888"
+        android:visibility="gone" />
+
     <TextView
         android:id="@+id/profileStatus"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:textSize="9sp"
+        android:layout_marginTop="2dp"
+        android:textSize="10sp"
         android:textColor="#888888"
         android:lineSpacingExtra="2dp"
         android:visibility="gone"
-        tools:text="Connected\nIP: 10.0.0.5\nIn: 1.2 MB / Out: 340 KB" />
+        tools:text="[SSL/TLS Parameters]\nPROTOCOL: TLSv1.3" />
 
 </LinearLayout>

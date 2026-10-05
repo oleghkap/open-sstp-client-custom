@@ -16,29 +16,18 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
-// app-wide settings (not per-profile): they must never be saved into / overwritten by a profile
+// runtime state only: never saved into a profile. Everything else, including the auto-connect
+// rules, belongs to the profile and is saved / exported / imported with it.
 private val EXCLUDED_BOOLEAN_PREFERENCES = arrayOf(
     OscPrefKey.ROOT_STATE,
     OscPrefKey.HOME_CONNECTOR,
     OscPrefKey.HOME_STATUS,
     OscPrefKey.ACTIVE_PROFILE_NAME,
-    OscPrefKey.AUTO_CONNECT_ENABLED,
-    OscPrefKey.AUTO_CONNECT_DISABLED,
-    OscPrefKey.AUTO_CONNECT_ON_MOBILE,
-    OscPrefKey.AUTO_DISCONNECT_ON_MOBILE_LOSS,
-    OscPrefKey.AUTO_CONNECT_ON_WIFI_INCLUDE,
-    OscPrefKey.AUTO_CONNECT_ON_WIFI_EXCLUDE,
-    OscPrefKey.AUTO_DISCONNECT_ON_WIFI_LOSS,
 )
 
 private val EXCLUDED_STRING_PREFERENCES = arrayOf(
     OscPrefKey.HOME_STATUS,
     OscPrefKey.ACTIVE_PROFILE_NAME,
-)
-
-private val EXCLUDED_SET_PREFERENCES = arrayOf(
-    OscPrefKey.AUTO_CONNECT_WIFI_INCLUDE_SSIDS,
-    OscPrefKey.AUTO_CONNECT_WIFI_EXCLUDE_SSIDS,
 )
 
 @Serializable
@@ -62,7 +51,7 @@ internal fun serializeProfile(prefs: SharedPreferences): String {
     DEFAULT_STRING_MAP.keys.filter { it !in EXCLUDED_STRING_PREFERENCES }.forEach {
         profile.stringSetting[it.name] = getStringPrefValue(it, prefs)
     }
-    DEFAULT_SET_MAP.keys.filter { it !in EXCLUDED_SET_PREFERENCES }.forEach {
+    DEFAULT_SET_MAP.keys.forEach {
         profile.setSetting[it.name] = getSetPrefValue(it, prefs)
     }
     DEFAULT_URI_MAP.keys.forEach {
@@ -104,7 +93,7 @@ internal fun importProfile(profile: Profile?, prefs: SharedPreferences) {
             prefs,
         )
     }
-    DEFAULT_SET_MAP.keys.filter { it !in EXCLUDED_SET_PREFERENCES }.forEach {
+    DEFAULT_SET_MAP.keys.forEach {
         setSetPrefValue(
             profile?.setSetting[it.name] ?: DEFAULT_SET_MAP.getValue(it),
             it,
