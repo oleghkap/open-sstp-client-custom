@@ -54,7 +54,9 @@ import java.io.BufferedOutputStream
 
 internal const val EXTRA_PROFILE_NAME = "kittoku.osc.PROFILE_NAME"
 
-// app-wide auto-connect settings: changing them never makes the profile being edited "dirty"
+// auto-connect rules are part of the profile like any other setting: changing one marks the
+// profile as modified (so the save icon appears), and it also has to start/stop the network
+// watcher and ask for the permissions the rule needs
 private val AUTO_CONNECT_KEYS = setOf(
     OscPrefKey.AUTO_CONNECT_DISABLED.name,
     OscPrefKey.AUTO_CONNECT_ENABLED.name,
@@ -72,7 +74,7 @@ private val NON_DIRTYING_KEYS = setOf(
     OscPrefKey.HOME_CONNECTOR.name,
     OscPrefKey.HOME_STATUS.name,
     OscPrefKey.ACTIVE_PROFILE_NAME.name,
-) + AUTO_CONNECT_KEYS
+)
 
 class ProfileEditActivity : AppCompatActivity() {
     private lateinit var prefs: SharedPreferences
@@ -91,10 +93,17 @@ class ProfileEditActivity : AppCompatActivity() {
     private var saveCompleted = false
 
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key != null && key in AUTO_CONNECT_KEYS) {
-            onAutoConnectSettingChanged(key)
-        } else if (!isRestoring && key != null && key !in NON_DIRTYING_KEYS) {
-            setDirty(true)
+        if (key != null) {
+            if (key in AUTO_CONNECT_KEYS) {
+                syncAutoConnectService(this, fromUi = true)
+
+                if (!isRestoring) {
+                    setDirty(true)
+                    onAutoConnectSettingTurnedOn(key)
+                }
+            } else if (!isRestoring && key !in NON_DIRTYING_KEYS) {
+                setDirty(true)
+            }
         }
     }
 
@@ -126,8 +135,9 @@ class ProfileEditActivity : AppCompatActivity() {
             return@registerForActivityResult
         }
 
-        importProfile(profile, prefs)
+        withoutTracking { importProfile(profile, prefs) }
         updatePreferenceView()
+        syncAutoConnectService(this, fromUi = true)
         setDirty(true)
         Toast.makeText(this, "ПРОФИЛЬ ИМПОРТИРОВАН — СОХРАНИТЕ ЕГО", Toast.LENGTH_SHORT).show()
     }
@@ -152,12 +162,20 @@ class ProfileEditActivity : AppCompatActivity() {
         invalidateOptionsMenu()
     }
 
-    // --- auto-connect: keep the network watcher in step with the settings and get the
-    // permissions the rules need ---
+    // bulk changes made by the code itself (import, reset, restore) must not be treated as the
+    // person editing individual settings, nor trigger the permission prompts
+    private fun withoutTracking(block: () -> Unit) {
+        isRestoring = true
+        try {
+            block()
+        } finally {
+            isRestoring = false
+        }
+    }
 
-    private fun onAutoConnectSettingChanged(key: String) {
-        syncAutoConnectService(this, fromUi = true)
+    // --- auto-connect: get the permissions the rules need ---
 
+    private fun onAutoConnectSettingTurnedOn(key: String) {
         // only switching something ON needs permissions; the master "off" switch needs none
         if (prefs.all[key] != true || key == OscPrefKey.AUTO_CONNECT_DISABLED.name) return
 
@@ -323,6 +341,9 @@ class ProfileEditActivity : AppCompatActivity() {
         }.attach()
 
         prefs.registerOnSharedPreferenceChangeListener(prefsListener)
+
+        // the profile just loaded may have auto-connect rules on or off
+        syncAutoConnectService(this, fromUi = true)
     }
 
     override fun onDestroy() {
@@ -444,9 +465,7 @@ class ProfileEditActivity : AppCompatActivity() {
                 "Пароль также будет экспортирован открытым текстом. " +
                     "Если это нежелательно, очистите поле пароля перед экспортом.",
             )
-            .setPositiveButton("ПРОДОЛЖИТЬ") {
-                    _, _ -> exportLauncher.launch(filename)
-            }
+            .setPositiveButton("ПРОДОЛЖИТЬ") { _, _ -> exportLauncher.launch(filename) }
             .setNegativeButton("ОТМЕНА", null)
             .show()
     }
@@ -455,8 +474,9 @@ class ProfileEditActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setMessage("Сбросить настройки текущего профиля по умолчанию?")
             .setPositiveButton("ДА") { _, _ ->
-                importProfile(null, prefs)
+                withoutTracking { importProfile(null, prefs) }
                 updatePreferenceView()
+                syncAutoConnectService(this, fromUi = true)
                 setDirty(true)
                 Toast.makeText(
                     this,
@@ -469,15 +489,13 @@ class ProfileEditActivity : AppCompatActivity() {
     }
 
     private fun restoreEntryState() {
-        isRestoring = true
-        try {
+        withoutTracking {
             importProfile(deserializeProfile(entryProfileSnapshot), prefs)
             setStringPrefValue(entryActiveName, OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
-        } finally {
-            isRestoring = false
         }
 
         setDirty(false)
+        syncAutoConnectService(this, fromUi = true)
 
         if (wasConnectedOnEntry) {
             checkPreferences(prefs)?.also { message ->

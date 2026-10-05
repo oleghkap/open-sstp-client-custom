@@ -114,15 +114,24 @@ class MainActivity : AppCompatActivity() {
 
         names.forEach { name ->
             val row = inflater.inflate(R.layout.item_profile, binding.profileListContainer, false)
-            row.findViewById<TextView>(R.id.profileName).text = name
 
+            // the name is the only interactive part of the row: a tap opens the editor, a long
+            // press brings up rename / edit / delete. The statistics below it are plain text.
+            val nameView = row.findViewById<TextView>(R.id.profileName)
+            nameView.text = name
+            nameView.setOnClickListener { openEditor(name) }
+            nameView.setOnLongClickListener { showProfileActionsDialog(name); true }
+
+            val statusTitleView = row.findViewById<TextView>(R.id.profileStatusTitle)
             val statusView = row.findViewById<TextView>(R.id.profileStatus)
             val isThisRowActive = activeName == name && isConnected
             if (isThisRowActive && statusText.isNotEmpty()) {
                 statusView.text = statusText
                 statusView.visibility = android.view.View.VISIBLE
+                statusTitleView.visibility = android.view.View.VISIBLE
             } else {
                 statusView.visibility = android.view.View.GONE
+                statusTitleView.visibility = android.view.View.GONE
             }
 
             val switch = row.findViewById<SwitchMaterial>(R.id.profileSwitch)
@@ -131,11 +140,6 @@ class MainActivity : AppCompatActivity() {
             switch.setOnCheckedChangeListener { _, isChecked ->
                 onToggleProfile(name, isChecked, switch)
             }
-
-            // single tap on the name opens the editor; the status text underneath is not
-            // clickable, and a long press anywhere on the row brings up rename/edit/delete
-            row.findViewById<TextView>(R.id.profileName).setOnClickListener { openEditor(name) }
-            row.setOnLongClickListener { showProfileActionsDialog(name); true }
 
             binding.profileListContainer.addView(row)
         }
@@ -181,6 +185,9 @@ class MainActivity : AppCompatActivity() {
 
             importProfile(profile, prefs)
             setStringPrefValue(name, OscPrefKey.ACTIVE_PROFILE_NAME, prefs)
+
+            // the auto-connect rules belong to the profile, so activating it switches them too
+            syncAutoConnectService(this, fromUi = true)
 
             checkPreferences(prefs)?.also { message ->
                 toastInvalidSetting(message, this)
