@@ -50,28 +50,6 @@ private const val FALLBACK_DELAY = 3_000L
 // network turning one rule into an endless connect/disconnect loop
 private const val ACTION_COOLDOWN = 15_000L
 
-// how long after a network change a dropped tunnel is blamed on that change
-private const val NETWORK_CHANGE_WINDOW = 15_000L
-
-
-// shared with the VPN controller: while the watcher runs, a tunnel that dies right after the
-// phone switched networks is left to the auto-connect rules instead of being re-created blindly
-internal object AutoConnectState {
-    @Volatile
-    var isWatching = false
-
-    @Volatile
-    private var lastNetworkEventAt = 0L
-
-    fun markNetworkEvent() {
-        lastNetworkEventAt = SystemClock.elapsedRealtime()
-    }
-
-    fun isNetworkChangeRecent(): Boolean {
-        return isWatching && SystemClock.elapsedRealtime() - lastNetworkEventAt < NETWORK_CHANGE_WINDOW
-    }
-}
-
 
 internal fun isAutoConnectRequired(prefs: SharedPreferences): Boolean {
     if (getBooleanPrefValue(OscPrefKey.AUTO_CONNECT_DISABLED, prefs)) return false
@@ -147,24 +125,20 @@ internal class AutoConnectService : Service() {
 
     private val wifiCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            AutoConnectState.markNetworkEvent()
             handler.post { onWifiAvailable(network) }
         }
 
         override fun onLost(network: Network) {
-            AutoConnectState.markNetworkEvent()
             handler.post { onWifiLost(network) }
         }
     }
 
     private val cellCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            AutoConnectState.markNetworkEvent()
             handler.post { onCellAvailable(network) }
         }
 
         override fun onLost(network: Network) {
-            AutoConnectState.markNetworkEvent()
             handler.post { onCellLost(network) }
         }
     }
@@ -188,14 +162,12 @@ internal class AutoConnectService : Service() {
 
             registerCallbacks()
             isRegistered = true
-            AutoConnectState.isWatching = true
         }
 
         return START_STICKY
     }
 
     override fun onDestroy() {
-        AutoConnectState.isWatching = false
         handler.removeCallbacksAndMessages(null)
 
         if (isRegistered) {
