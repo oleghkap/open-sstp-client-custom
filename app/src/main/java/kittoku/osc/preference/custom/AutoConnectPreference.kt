@@ -64,6 +64,13 @@ internal class AutoDisconnectOnWifiLossPreference(context: Context, attrs: Attri
 // network that isn't nearby (e.g. a work Wi-Fi while setting this up from home) would be
 // impossible. Typing the exact network name works everywhere, with or without Wi-Fi/location.
 internal abstract class SsidListPreference(context: Context, attrs: AttributeSet) : EditTextPreference(context, attrs), OscPreference {
+    // this preference's android:key actually stores a Set<String> (written directly via
+    // setSetPrefValue in the change listener below). EditTextPreference's own `text = ...`
+    // setter always persists a plain String under that same key as a side effect, which would
+    // silently corrupt the Set and crash the next read; disabling that persistence here makes
+    // `text = ...` a display-only update, safe to call from updateView()
+    override fun persistString(value: String?): Boolean = false
+
     override fun updateView() {
         text = getSetPrefValue(oscPrefKey, sharedPreferences!!).sorted().joinToString("\n")
     }
@@ -75,9 +82,9 @@ internal abstract class SsidListPreference(context: Context, attrs: AttributeSet
             it.setSelection(it.text?.length ?: 0)
         }
 
-        // EditTextPreference persists its value as a single String by default, but this
-        // preference's key actually stores a Set<String>; returning false here stops that
-        // default persistence (we write the parsed set ourselves instead, see below)
+        // the dialog calls callChangeListener(newText) before persisting; returning false here
+        // additionally stops EditTextPreference's own setText()/persistString() call, since we
+        // write the parsed Set<String> ourselves right here instead
         setOnPreferenceChangeListener { _, newValue ->
             val ssids = (newValue as String)
                 .split("\n", ",")
