@@ -12,6 +12,9 @@ import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
 import android.service.quicksettings.TileService
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.RelativeSizeSpan
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -58,6 +61,9 @@ internal const val NOTIFICATION_DISCONNECT_ID = 3
 internal const val NOTIFICATION_CERTIFICATE_ID = 4
 
 private const val STATUS_UPDATE_INTERVAL = 2_000L
+
+// 20% smaller than the surrounding notification text
+private const val TRAFFIC_TEXT_SCALE = 0.8f
 
 
 internal class SstpVpnService : VpnService() {
@@ -251,8 +257,13 @@ internal class SstpVpnService : VpnService() {
         val stateLabel = if (isEstablished) "Соединено" else "Соединение…"
 
         val ipTerminal = controller?.bridge?.ipTerminal
-        val trafficText = if (isEstablished && ipTerminal != null) {
-            "Входящий: ${formatBytes(ipTerminal.bytesIn.get())}  •  Исходящий: ${formatBytes(ipTerminal.bytesOut.get())}"
+        val trafficText: CharSequence? = if (isEstablished && ipTerminal != null) {
+            val raw = "Входящий: ${formatBytes(ipTerminal.bytesIn.get())}  •  Исходящий: ${formatBytes(ipTerminal.bytesOut.get())}"
+            // the notification's body text is normally rendered a bit smaller than the title by
+            // the system already; this shrinks it a further 20% on top of that
+            SpannableString(raw).also {
+                it.setSpan(RelativeSizeSpan(TRAFFIC_TEXT_SCALE), 0, raw.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
         } else {
             null
         }
