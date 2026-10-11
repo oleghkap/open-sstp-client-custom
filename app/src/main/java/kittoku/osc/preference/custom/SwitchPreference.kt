@@ -8,8 +8,7 @@ import kittoku.osc.preference.accessor.getBooleanPrefValue
 
 
 internal abstract class SwitchPreference(context: Context, attrs: AttributeSet) : SwitchPreferenceCompat(context, attrs), OscPreference {
-    // an optional static subtitle shown under the title, like "Запрещает автоматические
-    // VPN-подключения при изменении сети" under "Запретить автоматическое подключение"
+    // an optional static subtitle shown under the title
     protected open val preferenceSummary: String? = null
 
     override fun updateView() {

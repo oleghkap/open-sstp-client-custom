@@ -1,13 +1,12 @@
 package kittoku.osc.preference.custom
 
 import android.content.Context
-import android.text.InputType
 import android.util.AttributeSet
-import androidx.preference.EditTextPreference
 import androidx.preference.Preference
 import kittoku.osc.preference.OscPrefKey
 import kittoku.osc.preference.accessor.getSetPrefValue
-import kittoku.osc.preference.accessor.setSetPrefValue
+import kittoku.osc.service.collectKnownSsids
+import kittoku.osc.service.hasLocationPermission
 
 
 internal class AutoConnectDisabledPreference(context: Context, attrs: AttributeSet) : SwitchPreference(context, attrs) {
@@ -59,54 +58,26 @@ internal class AutoDisconnectOnWifiLossPreference(context: Context, attrs: Attri
     override val preferenceSummary = "Отключать SSTP-туннель при потере активной сети Wi-Fi"
 }
 
-// A free-text, newline-separated list of SSIDs. Deliberately NOT a "pick from scanned networks"
-// picker: scanning only finds networks that are in range right now, so configuring a rule for a
-// network that isn't nearby (e.g. a work Wi-Fi while setting this up from home) would be
-// impossible. Typing the exact network name works everywhere, with or without Wi-Fi/location.
-internal abstract class SsidListPreference(context: Context, attrs: AttributeSet) : EditTextPreference(context, attrs), OscPreference {
-    // this preference's android:key actually stores a Set<String> (written directly via
-    // setSetPrefValue in the change listener below). EditTextPreference's own `text = ...`
-    // setter always persists a plain String under that same key as a side effect, which would
-    // silently corrupt the Set and crash the next read; disabling that persistence here makes
-    // `text = ...` a display-only update, safe to call from updateView()
-    override fun persistString(value: String?): Boolean = false
+// list of Wi-Fi networks to pick from: the ones already chosen, the one the phone is on now and,
+// with the location permission, nearby and remembered networks
+internal abstract class SsidListPreference(context: Context, attrs: AttributeSet) : ModifiedMultiSelectListPreference(context, attrs) {
+    override val entryValues: Array<String>
+        get() = collectKnownSsids(context, getSetPrefValue(oscPrefKey, sharedPreferences!!)).toTypedArray()
 
-    override fun updateView() {
-        text = getSetPrefValue(oscPrefKey, sharedPreferences!!).sorted().joinToString("\n")
-    }
+    override val provider = SummaryProvider<Preference> {
+        val count = getSetPrefValue(oscPrefKey, it.sharedPreferences!!).size
 
-    override fun onAttached() {
-        setOnBindEditTextListener {
-            it.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
-            it.hint = "Домашний WiFi\nРабочий WiFi"
-            it.setSelection(it.text?.length ?: 0)
+        val base = when (count) {
+            0 -> "[Сети не выбраны]"
+            1 -> "Выбрана 1 сеть"
+            else -> "Выбрано сетей: $count"
         }
 
-        // the dialog calls callChangeListener(newText) before persisting; returning false here
-        // additionally stops EditTextPreference's own setText()/persistString() call, since we
-        // write the parsed Set<String> ourselves right here instead
-        setOnPreferenceChangeListener { _, newValue ->
-            val ssids = (newValue as String)
-                .split("\n", ",")
-                .map { it.trim() }
-                .filter { it.isNotEmpty() }
-                .toSet()
-
-            setSetPrefValue(ssids, oscPrefKey, sharedPreferences!!)
-            updateView()
-
-            false
+        if (hasLocationPermission(it.context)) {
+            base
+        } else {
+            base + "\nЧтобы увидеть список доступных сетей, нужен доступ к геопозиции"
         }
-
-        summaryProvider = SummaryProvider<Preference> {
-            when (val count = getSetPrefValue(oscPrefKey, it.sharedPreferences!!).size) {
-                0 -> "[Сети не выбраны]"
-                1 -> "Указана 1 сеть"
-                else -> "Указано сетей: $count"
-            }
-        }
-
-        initialize()
     }
 }
 
