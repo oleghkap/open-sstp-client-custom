@@ -26,6 +26,7 @@ import kittoku.osc.preference.OscPrefKey
 import kittoku.osc.preference.accessor.getBooleanPrefValue
 import kittoku.osc.preference.accessor.getIntPrefValue
 import kittoku.osc.preference.accessor.resetReconnectionLife
+import kittoku.osc.service.ReconnectGate
 import kittoku.osc.terminal.SSL_REQUEST_INTERVAL
 import kittoku.osc.unit.sstp.SSTP_MESSAGE_TYPE_CALL_ABORT
 import kittoku.osc.unit.sstp.SSTP_MESSAGE_TYPE_CALL_DISCONNECT
@@ -60,12 +61,11 @@ internal class Controller(internal val bridge: SharedBridge) {
     // reconnection is always available (retries forever until it connects); when on, it's only
     // available while RECONNECTION_LIFE (the remaining-attempts counter) is still positive.
     //
-    // This is the ONLY thing that decides whether a broken connection is retried. Auto-connect's
-    // explicit rules ("Отключаться при отключении от сетей ...") act separately: they call the normal
-    // disconnect action (isReconnectionRequested = false), which always wins regardless of this.
-    // A connection that merely breaks because its underlying network changed (e.g. the modem
-    // drops mobile data once Wi-Fi takes over) is just a regular failure and is retried exactly
-    // like any other one — that is what "ограничивать количество попыток" being off means.
+    // This is normally the ONLY thing that decides whether a broken connection is retried. The
+    // one exception is ReconnectGate: an explicit auto-connect "disconnect on network loss"
+    // rule reacts to the very same physical event that just broke this connection, so it marks
+    // a short window during which this controller must not schedule a reconnect of its own -
+    // the rule's explicit disconnect always wins that race, never the automatic retry.
     private val isReconnectionLimited = getBooleanPrefValue(OscPrefKey.RECONNECTION_ENABLED, bridge.prefs)
     private val isReconnectionAvailable: Boolean
         get() = !isReconnectionLimited || getIntPrefValue(OscPrefKey.RECONNECTION_LIFE, bridge.prefs) > 0
@@ -292,7 +292,7 @@ internal class Controller(internal val bridge: SharedBridge) {
 
             closeTerminals()
 
-            if (isReconnectionRequested && isReconnectionAvailable) {
+            if (isReconnectionRequested && isReconnectionAvailable && !ReconnectGate.isSuppressed()) {
                 bridge.service.launchJobReconnect()
             } else if (shouldStopService) {
                 bridge.service.close()

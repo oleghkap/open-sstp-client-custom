@@ -51,6 +51,24 @@ private const val FALLBACK_DELAY = 3_000L
 private const val ACTION_COOLDOWN = 15_000L
 
 
+// An explicit auto-connect "disconnect" rule ("Отключаться при отключении от ...") and the
+// tunnel's own failure detection react to the exact same physical event (the network dying),
+// essentially at the same moment, on different threads. Without this gate it's a coin flip
+// whether the rule's explicit disconnect or the tunnel's own automatic reconnect "wins". The
+// rule is supposed to win outright, so it marks a short window here; Controller.kill() checks
+// it before ever scheduling a reconnect attempt.
+internal object ReconnectGate {
+    @Volatile
+    private var suppressedUntil = 0L
+
+    fun suppress(durationMs: Long = 8_000L) {
+        suppressedUntil = SystemClock.elapsedRealtime() + durationMs
+    }
+
+    fun isSuppressed(): Boolean = SystemClock.elapsedRealtime() < suppressedUntil
+}
+
+
 internal fun isAutoConnectRequired(prefs: SharedPreferences): Boolean {
     if (getBooleanPrefValue(OscPrefKey.AUTO_CONNECT_DISABLED, prefs)) return false
 
@@ -252,6 +270,9 @@ internal class AutoConnectService : Service() {
         if (now - lastDisconnectAt < ACTION_COOLDOWN) return
 
         lastDisconnectAt = now
+        // an explicit disconnect rule always wins over the tunnel's own "the network changed,
+        // try to reconnect" reflex, even though both can be triggered by the same event
+        ReconnectGate.suppress()
         startVpnService(this, ACTION_VPN_DISCONNECT)
     }
 
