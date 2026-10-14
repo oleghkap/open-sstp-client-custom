@@ -14,7 +14,7 @@ import android.os.Build
 import android.service.quicksettings.TileService
 import android.text.SpannableString
 import android.text.Spanned
-import android.text.style.AbsoluteSizeSpan
+import android.text.style.TypefaceSpan
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -62,9 +62,10 @@ internal const val NOTIFICATION_CERTIFICATE_ID = 4
 
 private const val STATUS_UPDATE_INTERVAL = 2_000L
 
-// absolute size (in sp) for the traffic line, instead of a size relative to the surrounding
-// text - some OEM notification skins only honor absolute-size spans, not relative ones
-private const val TRAFFIC_TEXT_SIZE_SP = 12
+// a condensed system typeface reads denser/narrower than the default notification font, even
+// at the same point size - tried as an alternative to size spans, which this device's
+// notification skin appears to ignore
+private const val TRAFFIC_TEXT_TYEFACE = "sans-serif-condensed"
 
 internal class SstpVpnService : VpnService() {
     private lateinit var prefs: SharedPreferences
@@ -259,10 +260,8 @@ internal class SstpVpnService : VpnService() {
         val ipTerminal = controller?.bridge?.ipTerminal
         val trafficText: CharSequence? = if (isEstablished && ipTerminal != null) {
             val raw = "Входящий: ${formatBytes(ipTerminal.bytesIn.get())}  •  Исходящий: ${formatBytes(ipTerminal.bytesOut.get())}"
-            // true = size is in sp (scales with the system font size), matching how normal
-            // notification text is measured
             SpannableString(raw).also {
-                it.setSpan(AbsoluteSizeSpan(TRAFFIC_TEXT_SIZE_SP, true), 0, raw.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                it.setSpan(TypefaceSpan(TRAFFIC_TEXT_TYEFACE), 0, raw.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
         } else {
             null
