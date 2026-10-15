@@ -315,7 +315,8 @@ internal class AutoConnectService : Service() {
 
         if (isMasterOff()) return
 
-        // "Отключаться при отключении от сетей WiFi": only closes the connection
+        // "Отключаться при отключении от сетей WiFi": only closes the connection, period -
+        // regardless of whether mobile data happens to be up at the same moment
         if (getBooleanPrefValue(OscPrefKey.AUTO_DISCONNECT_ON_WIFI_LOSS, prefs)) {
             disconnectNow()
         }
@@ -358,9 +359,11 @@ internal class AutoConnectService : Service() {
 
         if (isMasterOff()) return
 
-        // "Отключаться при отключении от мобильных сетей": only closes the connection, and only when the
-        // phone is really left without a mobile network (not when it merely moved to Wi-Fi first)
-        if (wifiNetwork == null && getBooleanPrefValue(OscPrefKey.AUTO_DISCONNECT_ON_MOBILE_LOSS, prefs)) {
+        // "Отключаться при отключении от мобильных сетей": only closes the connection, period -
+        // this must fire exactly when mobile is lost, including (especially) the common case
+        // where it's lost BECAUSE Wi-Fi just took over. An earlier "only if Wi-Fi isn't up
+        // either" guard here was wrong: it silently blocked this rule in exactly that case.
+        if (getBooleanPrefValue(OscPrefKey.AUTO_DISCONNECT_ON_MOBILE_LOSS, prefs)) {
             disconnectNow()
         }
     }
