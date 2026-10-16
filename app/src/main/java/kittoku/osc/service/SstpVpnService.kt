@@ -197,9 +197,20 @@ internal class SstpVpnService : VpnService() {
     // RECONNECTION_ENABLED now means "limit the number of attempts": off = retry forever until
     // it connects (matching the requested "VPN Client Pro" behaviour), on = stop after
     // RECONNECTION_COUNT tries.
+    //
+    // Before actually retrying (both up front and again after the wait, in case the network
+    // changed again while waiting), this also checks isCurrentNetworkApproved(): if a Wi-Fi
+    // allow/deny list (rules 5/6) is configured, a plain "the connection just broke, try again"
+    // retry must not blindly reconnect over whatever network happens to be up - it has to
+    // respect the same list, or stop instead.
     internal fun launchJobReconnect() {
         jobReconnect = scope.launch {
             try {
+                if (!isCurrentNetworkApproved(this@SstpVpnService)) {
+                    close()
+                    return@launch
+                }
+
                 val isLimited = getBooleanPrefValue(OscPrefKey.RECONNECTION_ENABLED, prefs)
 
                 val message = if (isLimited) {
@@ -214,6 +225,11 @@ internal class SstpVpnService : VpnService() {
                 logWriter?.report(message)
 
                 delay(getIntPrefValue(OscPrefKey.RECONNECTION_INTERVAL, prefs) * 1000L)
+
+                if (!isCurrentNetworkApproved(this@SstpVpnService)) {
+                    close()
+                    return@launch
+                }
 
                 initializeClient()
             } catch (_: CancellationException) { }
