@@ -61,6 +61,7 @@ internal enum class OscPrefKey {
     ROUTE_SELECTED_APPS,
     RECONNECTION_ENABLED,
     RECONNECTION_COUNT,
+    RECONNECTION_INTERVAL_MANUAL,
     RECONNECTION_INTERVAL,
     RECONNECTION_LIFE,
     LOG_DO_SAVE_LOG,
@@ -98,6 +99,9 @@ internal val DEFAULT_BOOLEAN_MAP = mapOf(
     OscPrefKey.ROUTE_DO_SHOW_BACKGROUND_APPS to false,
     // "limit the number of reconnection attempts": off = retry forever until connected
     OscPrefKey.RECONNECTION_ENABLED to false,
+    // off = use the app's own short built-in interval (see RECONNECT_INTERVAL_DEFAULT_SEC in
+    // SstpVpnService.kt); on = use the value typed into RECONNECTION_INTERVAL below
+    OscPrefKey.RECONNECTION_INTERVAL_MANUAL to false,
     OscPrefKey.LOG_DO_SAVE_LOG to false
 )
 
@@ -142,7 +146,9 @@ internal const val AUTH_PROTOCOL_EAP_MSCHAPv2 = "EAP-MSCHAPv2"
 
 internal val DEFAULT_SET_MAP = mapOf(
     OscPrefKey.SSL_SUITES to EMPTY_SET,
-    OscPrefKey.PPP_AUTH_PROTOCOLS to setOf(AUTH_PROTOCOl_PAP, AUTH_PROTOCOL_MSCHAPv2),
+    // only MSCHAPv2 is offered by default now; PAP (sends the password unencrypted inside the
+    // TLS tunnel, but with no extra hashing) is still selectable by hand if a server needs it
+    OscPrefKey.PPP_AUTH_PROTOCOLS to setOf(AUTH_PROTOCOL_MSCHAPv2),
     OscPrefKey.ROUTE_SELECTED_APPS to EMPTY_SET,
     OscPrefKey.AUTO_CONNECT_WIFI_INCLUDE_SSIDS to EMPTY_SET,
     OscPrefKey.AUTO_CONNECT_WIFI_EXCLUDE_SSIDS to EMPTY_SET,
