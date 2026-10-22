@@ -87,6 +87,13 @@ internal class ReconnectionEnabledPreference(context: Context, attrs: AttributeS
     override val preferenceTitle = "Ограничивать количество попыток"
 }
 
+internal class ReconnectionIntervalManualPreference(context: Context, attrs: AttributeSet) : SwitchPreference(context, attrs) {
+    override val oscPrefKey = OscPrefKey.RECONNECTION_INTERVAL_MANUAL
+    override val parentKey: OscPrefKey? = null
+    override val preferenceTitle = "Задать интервал вручную"
+    override val preferenceSummary = "Если выключено, используется короткий интервал по умолчанию"
+}
+
 internal class LogDoSaveLogPreference(context: Context, attrs: AttributeSet) : SwitchPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.LOG_DO_SAVE_LOG
     override val parentKey: OscPrefKey? = null
