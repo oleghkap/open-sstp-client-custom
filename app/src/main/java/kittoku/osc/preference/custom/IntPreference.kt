@@ -53,9 +53,10 @@ internal class ReconnectionCountPreference(context: Context, attrs: AttributeSet
     override val preferenceTitle = "Количество попыток"
 }
 
-// the pause between attempts applies whether or not the number of attempts is limited
+// only active (and only used) when the manual toggle above is on; otherwise the app's own
+// short built-in interval is used instead (see SstpVpnService.kt)
 internal class ReconnectionIntervalPreference(context: Context, attrs: AttributeSet) : IntPreference(context, attrs) {
     override val oscPrefKey = OscPrefKey.RECONNECTION_INTERVAL
-    override val parentKey: OscPrefKey? = null
+    override val parentKey = OscPrefKey.RECONNECTION_INTERVAL_MANUAL
     override val preferenceTitle = "Интервал между попытками (сек)"
 }
