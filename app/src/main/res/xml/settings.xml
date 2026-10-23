@@ -71,6 +71,7 @@
     <PreferenceCategory android:title="Переподключение">
         <kittoku.osc.preference.custom.ReconnectionEnabledPreference android:key="RECONNECTION_ENABLED"/>
         <kittoku.osc.preference.custom.ReconnectionCountPreference android:key="RECONNECTION_COUNT"/>
+        <kittoku.osc.preference.custom.ReconnectionIntervalManualPreference android:key="RECONNECTION_INTERVAL_MANUAL"/>
         <kittoku.osc.preference.custom.ReconnectionIntervalPreference android:key="RECONNECTION_INTERVAL"/>
     </PreferenceCategory>
 
