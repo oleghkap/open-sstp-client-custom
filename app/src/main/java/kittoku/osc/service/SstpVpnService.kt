@@ -51,12 +51,10 @@ internal const val ACTION_VPN_CONNECT = "kittoku.osc.connect"
 internal const val ACTION_VPN_DISCONNECT = "kittoku.osc.disconnect"
 
 internal const val NOTIFICATION_ERROR_CHANNEL = "ERROR"
-internal const val NOTIFICATION_RECONNECT_CHANNEL = "RECONNECT"
 internal const val NOTIFICATION_DISCONNECT_CHANNEL = "DISCONNECT"
 internal const val NOTIFICATION_CERTIFICATE_CHANNEL = "CERTIFICATE"
 
 internal const val NOTIFICATION_ERROR_ID = 1
-internal const val NOTIFICATION_RECONNECT_ID = 2
 internal const val NOTIFICATION_DISCONNECT_ID = 3
 internal const val NOTIFICATION_CERTIFICATE_ID = 4
 
@@ -66,6 +64,10 @@ private const val STATUS_UPDATE_INTERVAL = 2_000L
 // at the same point size - tried as an alternative to size spans, which this device's
 // notification skin appears to ignore
 private const val TRAFFIC_TEXT_TYEFACE = "sans-serif-condensed"
+
+// used whenever "Задать интервал вручную" is off: a short, fixed pause before retrying, instead
+// of whatever is (or isn't) typed into the manual field
+private const val RECONNECT_INTERVAL_DEFAULT_SEC = 3
 
 internal class SstpVpnService : VpnService() {
     private lateinit var prefs: SharedPreferences
@@ -198,6 +200,11 @@ internal class SstpVpnService : VpnService() {
     // it connects (matching the requested "VPN Client Pro" behaviour), on = stop after
     // RECONNECTION_COUNT tries.
     //
+    // No separate "reconnecting" system notification is posted any more - the single ongoing
+    // status notification just keeps showing "Соединение…" the whole time (it's already updated
+    // every couple seconds by startStatusUpdater, which keeps running across this wait), the
+    // same way VPN Client Pro's single notification behaves.
+    //
     // Before actually retrying (both up front and again after the wait, in case the network
     // changed again while waiting), this also checks isCurrentNetworkApproved(): if a Wi-Fi
     // allow/deny list (rules 5/6) is configured, a plain "the connection just broke, try again"
@@ -211,20 +218,21 @@ internal class SstpVpnService : VpnService() {
                     return@launch
                 }
 
-                val isLimited = getBooleanPrefValue(OscPrefKey.RECONNECTION_ENABLED, prefs)
-
-                val message = if (isLimited) {
+                if (getBooleanPrefValue(OscPrefKey.RECONNECTION_ENABLED, prefs)) {
                     val life = getIntPrefValue(OscPrefKey.RECONNECTION_LIFE, prefs) - 1
                     setIntPrefValue(life, OscPrefKey.RECONNECTION_LIFE, prefs)
-                    "Будет предпринята попытка переподключения (осталось: $life)"
+                    logWriter?.report("Будет предпринята попытка переподключения (осталось: $life)")
                 } else {
-                    "Будет предпринята попытка переподключения"
+                    logWriter?.report("Будет предпринята попытка переподключения")
                 }
 
-                notifyMessage(message, NOTIFICATION_RECONNECT_ID, NOTIFICATION_RECONNECT_CHANNEL)
-                logWriter?.report(message)
+                val intervalSec = if (getBooleanPrefValue(OscPrefKey.RECONNECTION_INTERVAL_MANUAL, prefs)) {
+                    getIntPrefValue(OscPrefKey.RECONNECTION_INTERVAL, prefs)
+                } else {
+                    RECONNECT_INTERVAL_DEFAULT_SEC
+                }
 
-                delay(getIntPrefValue(OscPrefKey.RECONNECTION_INTERVAL, prefs) * 1000L)
+                delay(intervalSec * 1000L)
 
                 if (!isCurrentNetworkApproved(this@SstpVpnService)) {
                     close()
@@ -233,9 +241,6 @@ internal class SstpVpnService : VpnService() {
 
                 initializeClient()
             } catch (_: CancellationException) { }
-            finally {
-                cancelNotification(NOTIFICATION_RECONNECT_ID)
-            }
         }
     }
 
@@ -243,7 +248,6 @@ internal class SstpVpnService : VpnService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             listOf(
                 NOTIFICATION_ERROR_CHANNEL to "Ошибки",
-                NOTIFICATION_RECONNECT_CHANNEL to "Переподключение",
                 NOTIFICATION_DISCONNECT_CHANNEL to "Статус соединения",
                 NOTIFICATION_CERTIFICATE_CHANNEL to "Сертификаты",
             ).map { (id, name) ->
@@ -257,8 +261,8 @@ internal class SstpVpnService : VpnService() {
     }
 
     // updates the ongoing notification every couple seconds with the real connection state
-    // ("Соединение…" while negotiating, "Соединено" once the tunnel is fully up), which
-    // profile is connected, and live incoming/outgoing traffic.
+    // ("Соединение…" while negotiating or waiting to retry, "Соединено" once the tunnel is
+    // fully up), which profile is connected, and live incoming/outgoing traffic.
     private fun startStatusUpdater() {
         jobStatusUpdater = scope.launch {
             while (true) {
