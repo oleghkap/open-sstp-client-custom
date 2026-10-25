@@ -161,6 +161,13 @@ internal class SSLTerminal(private val bridge: SharedBridge) {
         val socketHostname = if (doUseProxy) getStringPrefValue(OscPrefKey.PROXY_HOSTNAME, bridge.prefs) else sslHostname
         val socketPort = if (doUseProxy) getIntPrefValue(OscPrefKey.PROXY_PORT, bridge.prefs) else sslPort
         socket = Socket(socketHostname, socketPort).also {
+            // SSTP/PPP negotiation is a long back-and-forth of many small packets (LCP, auth,
+            // IPCP, ...). With Nagle's algorithm on (the JVM default) each small write can sit
+            // waiting to see if more data follows before it's actually sent, adding tens to a
+            // couple hundred ms of pure protocol overhead per round trip - this alone can account
+            // for several seconds across a full negotiation. Disabling it trades a theoretical
+            // few extra small packets on the wire for a much snappier connect.
+            it.tcpNoDelay = true
             socketInputStream = it.getInputStream()
             socketOutputStream = it.getOutputStream()
         }
