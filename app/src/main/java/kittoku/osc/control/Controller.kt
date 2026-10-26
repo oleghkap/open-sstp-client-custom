@@ -80,6 +80,12 @@ internal class Controller(internal val bridge: SharedBridge) {
         }
     }
 
+    // diagnostic only (used to find out where connection time goes): a no-op unless "Сохранять
+    // журнал" is on, in which case every successful stage gets its own timestamped line
+    private suspend fun logStage(label: String) {
+        bridge.service.logWriter?.report("Этап: $label")
+    }
+
     internal fun launchJobMain() {
         attachHandler()
 
@@ -92,6 +98,7 @@ internal class Controller(internal val bridge: SharedBridge) {
             if (!expectProceeded(Where.SSL, SSL_REQUEST_INTERVAL)) {
                 return@launch
             }
+            logStage("SSL установлен")
 
 
             IncomingManager(bridge).also {
@@ -108,6 +115,7 @@ internal class Controller(internal val bridge: SharedBridge) {
                 if (!expectProceeded(Where.SSTP_REQUEST, SSTP_REQUEST_TIMEOUT)) {
                     return@launch
                 }
+                logStage("SSTP-запрос принят")
 
                 sstpClient!!.launchJobControl()
             }
@@ -127,6 +135,7 @@ internal class Controller(internal val bridge: SharedBridge) {
                 if (!expectProceeded(Where.LCP, PPP_NEGOTIATION_TIMEOUT)) {
                     return@launch
                 }
+                logStage("LCP согласован")
 
                 incomingManager!!.unregisterMailbox(it)
             }
@@ -167,6 +176,7 @@ internal class Controller(internal val bridge: SharedBridge) {
 
                 else -> throw NotImplementedError(bridge.currentAuth)
             }
+            logStage("Аутентификация пройдена")
 
 
             sstpClient!!.sendCallConnected()
@@ -180,6 +190,7 @@ internal class Controller(internal val bridge: SharedBridge) {
                     if (!expectProceeded(Where.IPCP, PPP_NEGOTIATION_TIMEOUT)) {
                         return@launch
                     }
+                    logStage("IPCP согласован")
 
                     incomingManager!!.unregisterMailbox(it)
                 }
@@ -194,6 +205,7 @@ internal class Controller(internal val bridge: SharedBridge) {
                     if (!expectProceeded(Where.IPV6CP, PPP_NEGOTIATION_TIMEOUT)) {
                         return@launch
                     }
+                    logStage("IPv6CP согласован")
 
                     incomingManager!!.unregisterMailbox(it)
                 }
@@ -204,6 +216,7 @@ internal class Controller(internal val bridge: SharedBridge) {
             if (!expectProceeded(Where.IP, null)) {
                 return@launch
             }
+            logStage("Туннель поднят")
 
 
             OutgoingManager(bridge).also {
