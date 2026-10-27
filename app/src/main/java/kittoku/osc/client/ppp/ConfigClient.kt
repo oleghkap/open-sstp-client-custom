@@ -16,7 +16,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 
-private const val PPP_REQUEST_INTERVAL = 3000L
+// DIAGNOSTIC CHANGE (see conversation): logs showed LCP and IPCP each losing ~3-4.5s to exactly
+// one wasted retransmission cycle, strongly correlated with the old 3000ms value here - the
+// server's genuine first reply appears to routinely take a bit longer than that. Raised to give
+// it room to arrive without triggering a redundant resend; please test again and compare the
+// "Этап: ..." log timestamps to the previous run.
+private const val PPP_REQUEST_INTERVAL = 4500L
 private const val PPP_REQUEST_COUNT = 10
 internal const val PPP_NEGOTIATION_TIMEOUT = PPP_REQUEST_INTERVAL * PPP_REQUEST_COUNT
 
