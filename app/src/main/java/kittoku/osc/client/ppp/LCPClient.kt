@@ -9,6 +9,8 @@ import kittoku.osc.Where
 import kittoku.osc.preference.AUTH_PROTOCOL_EAP_MSCHAPv2
 import kittoku.osc.preference.AUTH_PROTOCOL_MSCHAPv2
 import kittoku.osc.preference.AUTH_PROTOCOl_PAP
+import kittoku.osc.preference.OscPrefKey
+import kittoku.osc.preference.accessor.getBooleanPrefValue
 import kittoku.osc.unit.ppp.LCPConfigureAck
 import kittoku.osc.unit.ppp.LCPConfigureFrame
 import kittoku.osc.unit.ppp.LCPConfigureNak
@@ -27,6 +29,12 @@ import kotlin.math.min
 
 internal class LCPClient(bridge: SharedBridge) : ConfigClient<LCPConfigureFrame>(Where.LCP, bridge) {
     private var isMruRejected = false
+
+    // only present when the person explicitly set a manual MTU; in auto mode we accept
+    // whatever MRU the server proposes instead of fighting over it, which costs a whole extra
+    // negotiation round trip for no real benefit (confirmed with timestamped logs: this NAK was
+    // responsible for a consistent ~4s delay on every connection)
+    private val isMtuManual = getBooleanPrefValue(OscPrefKey.PPP_MTU_MANUAL, bridge.prefs)
 
     override fun tryCreateServerReject(request: LCPConfigureFrame): LCPConfigureFrame? {
         val reject = LCPOptionPack()
@@ -48,7 +56,7 @@ internal class LCPClient(bridge: SharedBridge) : ConfigClient<LCPConfigureFrame>
         val nak = LCPOptionPack()
 
         val serverMru = request.options.mruOption?.unitSize ?: DEFAULT_MRU
-        if (serverMru < bridge.PPP_MTU) {
+        if (isMtuManual && serverMru < bridge.PPP_MTU) {
             nak.mruOption = MRUOption().also { it.unitSize = bridge.PPP_MTU }
         }
 
