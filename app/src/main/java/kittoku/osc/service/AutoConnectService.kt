@@ -10,7 +10,6 @@ import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.net.VpnService
 import android.os.Build
 import android.os.Handler
@@ -38,14 +37,9 @@ internal const val EXTRA_FROM_UI = "kittoku.osc.FROM_UI"
 // so merely opening the app / flipping a setting does not reconnect a tunnel the user just closed
 private const val INITIAL_EVENTS_GRACE = 2_500L
 
-// the Wi-Fi SSID is not always readable the instant the network becomes available
+// the Wi-Fi SSID is not always readable the instant the network becomes active
 private const val SSID_SETTLE_DELAY = 1_500L
 private const val SSID_MAX_RETRIES = 3
-
-// how long to wait, after one transport is lost, before deciding what to do about it - gives the
-// OTHER transport (the one a "defer to" rule cares about) a chance to actually appear, so e.g.
-// rule 4 can correctly tell whether Wi-Fi really did take over before it decides anything
-private const val FALLBACK_DELAY = 3_000L
 
 // a rule never fires the same action twice within this window: protects against a flapping
 // network turning one rule into an endless connect/disconnect loop
@@ -80,7 +74,7 @@ internal fun isAutoConnectRequired(prefs: SharedPreferences): Boolean {
             getBooleanPrefValue(OscPrefKey.AUTO_DISCONNECT_ON_WIFI_LOSS, prefs)
 }
 
-// Whether the CURRENT active network (read fresh from ConnectivityManager, independent of
+// Whether the CURRENT default network (read fresh from ConnectivityManager, independent of
 // AutoConnectService's own bookkeeping - this must also work from the VPN service itself, where
 // the watcher's internal state isn't available) is one the Wi-Fi connect rules (5/6) approve of.
 // Used to gate the tunnel's own ordinary "the connection broke, try again" reconnect: if a
@@ -109,8 +103,8 @@ internal fun isCurrentNetworkApproved(context: Context): Boolean {
 }
 
 // starts the lightweight network watcher while at least one auto-connect rule is on, stops it
-// otherwise. The watcher is event-driven (it just waits for Android to report network changes),
-// so it costs next to no battery.
+// otherwise. The watcher is event-driven (it just waits for Android to report the default
+// network changing), so it costs next to no battery.
 internal fun syncAutoConnectService(context: Context, fromUi: Boolean) {
     val prefs = PreferenceManager.getDefaultSharedPreferences(context)
     val intent = Intent(context, AutoConnectService::class.java)
@@ -161,8 +155,17 @@ internal class AutoConnectService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
 
-    private var wifiNetwork: Network? = null
-    private var cellNetwork: Network? = null
+    // the network Android is actually routing traffic through right now, and which transport it
+    // is. Tracking THIS (rather than each transport's own up/down state separately) is what
+    // makes rules 4 and 7 reliable across devices/carriers: some phones keep the previous
+    // transport (typically mobile data) technically "up" in the background for a fast fallback
+    // even after Wi-Fi has fully taken over as the active route, so a plain "mobile network
+    // lost" event may simply never fire there. The default-network callback instead reports
+    // exactly when the SYSTEM switches which network it is using, which is the actual thing
+    // these rules care about, and behaves the same way regardless of that background-keepalive
+    // quirk.
+    private var activeNetwork: Network? = null
+    private var activeTransport: Int? = null // NetworkCapabilities.TRANSPORT_WIFI / TRANSPORT_CELLULAR / null
 
     private var isRegistered = false
     private var ignoreEventsUntil = 0L
@@ -170,23 +173,13 @@ internal class AutoConnectService : Service() {
     private var lastConnectAt = -ACTION_COOLDOWN
     private var lastDisconnectAt = -ACTION_COOLDOWN
 
-    private val wifiCallback = object : ConnectivityManager.NetworkCallback() {
-        override fun onAvailable(network: Network) {
-            handler.post { onWifiAvailable(network) }
+    private val defaultNetworkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+            handler.post { onDefaultNetworkUpdated(network, caps) }
         }
 
         override fun onLost(network: Network) {
-            handler.post { onWifiLost(network) }
-        }
-    }
-
-    private val cellCallback = object : ConnectivityManager.NetworkCallback() {
-        override fun onAvailable(network: Network) {
-            handler.post { onCellAvailable(network) }
-        }
-
-        override fun onLost(network: Network) {
-            handler.post { onCellLost(network) }
+            handler.post { onDefaultNetworkLost(network) }
         }
     }
 
@@ -207,8 +200,12 @@ internal class AutoConnectService : Service() {
                 ignoreEventsUntil = SystemClock.elapsedRealtime() + INITIAL_EVENTS_GRACE
             }
 
-            registerCallbacks()
-            isRegistered = true
+            try {
+                connectivity.registerDefaultNetworkCallback(defaultNetworkCallback)
+                isRegistered = true
+            } catch (_: Exception) {
+                // nothing more can be done; the notification stays so the person can see it is on
+            }
         }
 
         return START_STICKY
@@ -219,37 +216,11 @@ internal class AutoConnectService : Service() {
 
         if (isRegistered) {
             try {
-                connectivity.unregisterNetworkCallback(wifiCallback)
-            } catch (_: Exception) { }
-
-            try {
-                connectivity.unregisterNetworkCallback(cellCallback)
+                connectivity.unregisterNetworkCallback(defaultNetworkCallback)
             } catch (_: Exception) { }
         }
 
         super.onDestroy()
-    }
-
-    private fun registerCallbacks() {
-        // the VPN network itself must never be mistaken for a Wi-Fi / mobile network
-        val wifiRequest = NetworkRequest.Builder()
-            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
-            .build()
-
-        val cellRequest = NetworkRequest.Builder()
-            .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
-            .build()
-
-        try {
-            connectivity.registerNetworkCallback(wifiRequest, wifiCallback)
-            connectivity.registerNetworkCallback(cellRequest, cellCallback)
-        } catch (_: Exception) {
-            // nothing more can be done; the notification stays so the person can see it is on
-        }
     }
 
     private fun buildNotification(): Notification {
@@ -303,34 +274,83 @@ internal class AutoConnectService : Service() {
         startVpnService(this, ACTION_VPN_DISCONNECT)
     }
 
-    // true if a Wi-Fi connect rule (5/6) is configured AND approves of the Wi-Fi network the
-    // phone is on right now. Used so rule 4 ("disconnect on mobile loss") can defer to 5/6
-    // instead of outranking them - it is only supposed to outrank rule 3.
-    private fun isCurrentWifiApprovedByConnectRules(): Boolean {
-        val useInclude = getBooleanPrefValue(OscPrefKey.AUTO_CONNECT_ON_WIFI_INCLUDE, prefs)
-        val useExclude = getBooleanPrefValue(OscPrefKey.AUTO_CONNECT_ON_WIFI_EXCLUDE, prefs)
-        if (!useInclude && !useExclude) return false // nothing configured to defer to
+    // --- the default (actually-in-use) network changed ---
 
-        val ssid = readCurrentSsid(this) ?: return false // can't verify yet: don't defer
+    private fun onDefaultNetworkUpdated(network: Network, caps: NetworkCapabilities) {
+        // our own tunnel becoming the default network must never be treated as a network change
+        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) return
 
-        val included = getSetPrefValue(OscPrefKey.AUTO_CONNECT_WIFI_INCLUDE_SSIDS, prefs)
-        val excluded = getSetPrefValue(OscPrefKey.AUTO_CONNECT_WIFI_EXCLUDE_SSIDS, prefs)
+        val newTransport = when {
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> NetworkCapabilities.TRANSPORT_WIFI
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> NetworkCapabilities.TRANSPORT_CELLULAR
+            else -> null
+        }
 
-        return (useInclude && ssid in included) || (useExclude && ssid !in excluded)
-    }
+        val isSameNetwork = activeNetwork == network
+        val oldTransport = activeTransport
 
-    // --- Wi-Fi ---
+        activeNetwork = network
+        activeTransport = newTransport
 
-    private fun onWifiAvailable(network: Network) {
-        wifiNetwork = network
+        // just a capability refresh on the network already in use (signal strength, etc.), not
+        // an actual switch - nothing to do
+        if (isSameNetwork && oldTransport == newTransport) return
 
         if (isSuppressed() || isMasterOff()) return
 
-        handler.postDelayed({ evaluateWifiRules(network, 0) }, SSID_SETTLE_DELAY)
+        when (newTransport) {
+            NetworkCapabilities.TRANSPORT_WIFI -> onSwitchedToWifi(network, oldTransport)
+            NetworkCapabilities.TRANSPORT_CELLULAR -> onSwitchedToMobile(oldTransport)
+        }
     }
 
-    private fun evaluateWifiRules(network: Network, attempt: Int) {
-        if (wifiNetwork != network || isMasterOff()) return
+    private fun onDefaultNetworkLost(network: Network) {
+        if (activeNetwork != network) return
+
+        val oldTransport = activeTransport
+        activeNetwork = null
+        activeTransport = null
+
+        if (isMasterOff()) return
+
+        // total connectivity loss (not a switch to some other network, but no default network
+        // at all): there is nothing to defer to, so the matching disconnect rule fires outright
+        when (oldTransport) {
+            NetworkCapabilities.TRANSPORT_CELLULAR ->
+                if (getBooleanPrefValue(OscPrefKey.AUTO_DISCONNECT_ON_MOBILE_LOSS, prefs)) disconnectNow()
+
+            NetworkCapabilities.TRANSPORT_WIFI ->
+                if (getBooleanPrefValue(OscPrefKey.AUTO_DISCONNECT_ON_WIFI_LOSS, prefs)) disconnectNow()
+        }
+    }
+
+    // --- Wi-Fi became the default network ---
+
+    private fun onSwitchedToWifi(network: Network, oldTransport: Int?) {
+        // "Отключаться при отключении от мобильной сети" (rule 4) only outranks rule 3, not
+        // rules 5/6: if a Wi-Fi connect rule is configured and approves of the network we just
+        // switched to, defer to it instead of forcing a disconnect.
+        if (oldTransport == NetworkCapabilities.TRANSPORT_CELLULAR &&
+            getBooleanPrefValue(OscPrefKey.AUTO_DISCONNECT_ON_MOBILE_LOSS, prefs)
+        ) {
+            handler.postDelayed({ resolveSwitchedToWifiDisconnect(network) }, SSID_SETTLE_DELAY)
+        }
+
+        evaluateWifiConnectRules(network, 0)
+    }
+
+    private fun resolveSwitchedToWifiDisconnect(network: Network) {
+        if (activeNetwork != network) return // things moved on already
+        if (isMasterOff()) return
+        if (!getBooleanPrefValue(OscPrefKey.AUTO_DISCONNECT_ON_MOBILE_LOSS, prefs)) return
+
+        if (isCurrentWifiApprovedByConnectRules()) return // defer to 5/6
+
+        disconnectNow()
+    }
+
+    private fun evaluateWifiConnectRules(network: Network, attempt: Int) {
+        if (activeNetwork != network || isMasterOff()) return
 
         val useInclude = getBooleanPrefValue(OscPrefKey.AUTO_CONNECT_ON_WIFI_INCLUDE, prefs)
         val useExclude = getBooleanPrefValue(OscPrefKey.AUTO_CONNECT_ON_WIFI_EXCLUDE, prefs)
@@ -340,7 +360,7 @@ internal class AutoConnectService : Service() {
         if (ssid == null) {
             // not readable yet (or the location permission is missing): try a few more times
             if (attempt < SSID_MAX_RETRIES) {
-                handler.postDelayed({ evaluateWifiRules(network, attempt + 1) }, SSID_SETTLE_DELAY)
+                handler.postDelayed({ evaluateWifiConnectRules(network, attempt + 1) }, SSID_SETTLE_DELAY)
             }
             return
         }
@@ -358,78 +378,37 @@ internal class AutoConnectService : Service() {
         }
     }
 
-    private fun onWifiLost(network: Network) {
-        if (wifiNetwork != network) return
-        wifiNetwork = null
+    // true if a Wi-Fi connect rule (5/6) is configured AND approves of the Wi-Fi network the
+    // phone is on right now. Used so rule 4 ("disconnect on mobile loss") can defer to 5/6
+    // instead of outranking them - it is only supposed to outrank rule 3.
+    private fun isCurrentWifiApprovedByConnectRules(): Boolean {
+        val useInclude = getBooleanPrefValue(OscPrefKey.AUTO_CONNECT_ON_WIFI_INCLUDE, prefs)
+        val useExclude = getBooleanPrefValue(OscPrefKey.AUTO_CONNECT_ON_WIFI_EXCLUDE, prefs)
+        if (!useInclude && !useExclude) return false // nothing configured to defer to
 
-        if (isMasterOff()) return
+        val ssid = readCurrentSsid(this) ?: return false // can't verify yet: don't defer
 
-        if (getBooleanPrefValue(OscPrefKey.AUTO_DISCONNECT_ON_WIFI_LOSS, prefs)) {
-            // rule 7 only outranks rules 5/6, not rule 3: wait a moment to see whether mobile data
-            // actually takes over, and if rule 3 is on, let it keep the connection instead
-            handler.postDelayed({ resolveWifiLossDisconnect() }, FALLBACK_DELAY)
-        }
+        val included = getSetPrefValue(OscPrefKey.AUTO_CONNECT_WIFI_INCLUDE_SSIDS, prefs)
+        val excluded = getSetPrefValue(OscPrefKey.AUTO_CONNECT_WIFI_EXCLUDE_SSIDS, prefs)
 
-        if (getBooleanPrefValue(OscPrefKey.AUTO_CONNECT_ON_MOBILE, prefs)) {
-            handler.postDelayed({
-                if (wifiNetwork == null && cellNetwork != null) connectOnMobileIfEnabled()
-            }, FALLBACK_DELAY)
-        }
+        return (useInclude && ssid in included) || (useExclude && ssid !in excluded)
     }
 
-    private fun resolveWifiLossDisconnect() {
-        if (wifiNetwork != null) return // Wi-Fi came back in the meantime
-        if (isMasterOff()) return
-        if (!getBooleanPrefValue(OscPrefKey.AUTO_DISCONNECT_ON_WIFI_LOSS, prefs)) return
+    // --- mobile data became the default network ---
 
-        val deferToMobileRule = cellNetwork != null && getBooleanPrefValue(OscPrefKey.AUTO_CONNECT_ON_MOBILE, prefs)
-        if (deferToMobileRule) return
-
-        disconnectNow()
-    }
-
-    // --- Mobile data ---
-
-    private fun connectOnMobileIfEnabled() {
-        if (isMasterOff()) return
+    private fun onSwitchedToMobile(oldTransport: Int?) {
+        // "Отключаться при отключении от сетей WiFi" (rule 7) only outranks rules 5/6, not rule
+        // 3: if rule 3 is on, let it keep/start the connection over mobile instead of forcing a
+        // disconnect.
+        if (oldTransport == NetworkCapabilities.TRANSPORT_WIFI &&
+            getBooleanPrefValue(OscPrefKey.AUTO_DISCONNECT_ON_WIFI_LOSS, prefs) &&
+            !getBooleanPrefValue(OscPrefKey.AUTO_CONNECT_ON_MOBILE, prefs)
+        ) {
+            disconnectNow()
+        }
 
         if (getBooleanPrefValue(OscPrefKey.AUTO_CONNECT_ON_MOBILE, prefs)) {
             connectNow()
         }
-    }
-
-    private fun onCellAvailable(network: Network) {
-        cellNetwork = network
-
-        if (isSuppressed()) return
-
-        // mobile data is often up in the background while on Wi-Fi: it only counts as "connected
-        // to mobile" when Wi-Fi is not the network in use
-        if (wifiNetwork != null) return
-
-        connectOnMobileIfEnabled()
-    }
-
-    private fun onCellLost(network: Network) {
-        if (cellNetwork != network) return
-        cellNetwork = null
-
-        if (isMasterOff()) return
-
-        if (getBooleanPrefValue(OscPrefKey.AUTO_DISCONNECT_ON_MOBILE_LOSS, prefs)) {
-            // rule 4 only outranks rule 3, not rules 5/6: wait a moment to see whether Wi-Fi
-            // actually took over and settles on a network, then defer to 5/6's verdict on it
-            handler.postDelayed({ resolveMobileLossDisconnect() }, FALLBACK_DELAY)
-        }
-    }
-
-    private fun resolveMobileLossDisconnect() {
-        if (cellNetwork != null) return // mobile data came back in the meantime
-        if (isMasterOff()) return
-        if (!getBooleanPrefValue(OscPrefKey.AUTO_DISCONNECT_ON_MOBILE_LOSS, prefs)) return
-
-        if (wifiNetwork != null && isCurrentWifiApprovedByConnectRules()) return // defer to 5/6
-
-        disconnectNow()
     }
 }
