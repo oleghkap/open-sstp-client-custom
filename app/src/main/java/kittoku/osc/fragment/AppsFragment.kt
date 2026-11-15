@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
+import androidx.appcompat.widget.SearchView
 import androidx.preference.CheckBoxPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
@@ -18,12 +19,14 @@ import kittoku.osc.preference.accessor.getSetPrefValue
 import kittoku.osc.preference.accessor.setSetPrefValue
 import kittoku.osc.preference.custom.RouteDoShowBackgroundAppsPreference
 import kittoku.osc.preference.getInstalledAppInfos
+import java.util.Locale
 
 
 internal class AppsFragment : PreferenceFragmentCompat() {
     private lateinit var prefs: SharedPreferences
     private lateinit var pm: PackageManager
     private val shownCheckBoxes = mutableSetOf<CheckBoxPreference>()
+    private var currentQuery = ""
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         setPreferencesFromResource(R.xml.apps, rootKey)
@@ -54,6 +57,22 @@ internal class AppsFragment : PreferenceFragmentCompat() {
             shownCheckBoxes.add(checkBox)
             preferenceScreen.addPreference(checkBox)
         }
+
+        applySearchFilter(currentQuery)
+    }
+
+    // only hides/shows preferences already added to the screen - the underlying checked state
+    // (and so the saved selection) is untouched by filtering, same as VPN Client Pro's picker
+    private fun applySearchFilter(query: String) {
+        currentQuery = query
+        val needle = query.trim().lowercase(Locale.getDefault())
+
+        shownCheckBoxes.forEach { checkBox ->
+            val title = checkBox.title?.toString()?.lowercase(Locale.getDefault()) ?: ""
+            val packageName = checkBox.key.substring(TEMP_KEY_HEADER.length).lowercase(Locale.getDefault())
+
+            checkBox.isVisible = needle.isEmpty() || title.contains(needle) || packageName.contains(needle)
+        }
     }
 
     private fun processCurrentPreferences(f: (CheckBoxPreference) -> Unit) {
@@ -67,7 +86,11 @@ internal class AppsFragment : PreferenceFragmentCompat() {
 
     private fun changeAllPreferencesStates(newState: Boolean) {
         processCurrentPreferences {
-            it.isChecked = newState
+            // "select/unselect all" only acts on what the current search actually shows, mirroring
+            // what the person can see on screen rather than silently touching hidden entries too
+            if (it.isVisible) {
+                it.isChecked = newState
+            }
         }
     }
 
@@ -86,6 +109,28 @@ internal class AppsFragment : PreferenceFragmentCompat() {
 
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
         MenuInflater(requireContext()).inflate(R.menu.apps_menu, menu)
+
+        val searchItem = menu.findItem(R.id.search_apps)
+        (searchItem.actionView as SearchView).also {
+            it.queryHint = "Поиск приложений"
+            it.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+                override fun onQueryTextSubmit(query: String?): Boolean = false
+
+                override fun onQueryTextChange(newText: String?): Boolean {
+                    applySearchFilter(newText.orEmpty())
+                    return true
+                }
+            })
+        }
+
+        searchItem.setOnActionExpandListener(object : MenuItem.OnActionExpandListener {
+            override fun onMenuItemActionExpand(item: MenuItem) = true
+
+            override fun onMenuItemActionCollapse(item: MenuItem): Boolean {
+                applySearchFilter("")
+                return true
+            }
+        })
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
