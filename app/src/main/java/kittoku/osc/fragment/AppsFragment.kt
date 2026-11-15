@@ -108,10 +108,15 @@ internal class AppsFragment : PreferenceFragmentCompat() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        MenuInflater(requireContext()).inflate(R.menu.apps_menu, menu)
+        // IMPORTANT: must use the inflater passed in here (AppCompat-aware, supplied by the
+        // hosting AppCompatActivity), NOT a manually-constructed android.view.MenuInflater -
+        // the latter doesn't understand the app: namespace (actionViewClass/showAsAction), so
+        // the SearchView action view would never actually get created and the cast below would
+        // crash on a null view.
+        inflater.inflate(R.menu.apps_menu, menu)
 
         val searchItem = menu.findItem(R.id.search_apps)
-        (searchItem.actionView as SearchView).also {
+        (searchItem.actionView as? SearchView)?.also {
             it.queryHint = "Поиск приложений"
             it.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
                 override fun onQueryTextSubmit(query: String?): Boolean = false
