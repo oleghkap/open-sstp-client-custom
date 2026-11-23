@@ -45,6 +45,9 @@ private const val SSID_MAX_RETRIES = 3
 // network turning one rule into an endless connect/disconnect loop
 private const val ACTION_COOLDOWN = 15_000L
 
+// safety-net poll interval (see onStartCommand for why this exists)
+private const val NETWORK_POLL_INTERVAL = 60_000L
+
 
 // An explicit auto-connect "disconnect" rule ("Отключаться при отключении от ...") and the
 // tunnel's own failure detection react to the exact same physical event (the network dying),
@@ -183,6 +186,33 @@ internal class AutoConnectService : Service() {
         }
     }
 
+    // Safety net alongside the live callback above: on some devices (observed on a Samsung
+    // Galaxy A55) the system can go a long while without actually delivering a network-change
+    // callback to a background service, even though the callback is correctly registered and
+    // the battery settings are Unrestricted - a one-off manual "clean now" in Samsung's Device
+    // Care was enough to make the live callback start firing reliably again afterwards, which
+    // points at the OS occasionally failing to wake/schedule the callback rather than a logic
+    // bug here. This polls the network directly once a minute and feeds it through the exact
+    // same decision logic, so a missed live event still gets caught and acted on shortly after,
+    // without needing that manual nudge.
+    private val pollRunnable = object : Runnable {
+        override fun run() {
+            pollCurrentNetworkDirectly()
+            handler.postDelayed(this, NETWORK_POLL_INTERVAL)
+        }
+    }
+
+    private fun pollCurrentNetworkDirectly() {
+        val network = connectivity.activeNetwork
+        if (network == null) {
+            activeNetwork?.also { onDefaultNetworkLost(it) }
+            return
+        }
+
+        val caps = connectivity.getNetworkCapabilities(network) ?: return
+        onDefaultNetworkUpdated(network, caps)
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -202,10 +232,13 @@ internal class AutoConnectService : Service() {
 
             try {
                 connectivity.registerDefaultNetworkCallback(defaultNetworkCallback)
-                isRegistered = true
             } catch (_: Exception) {
                 // nothing more can be done; the notification stays so the person can see it is on
             }
+
+            handler.post(pollRunnable)
+
+            isRegistered = true
         }
 
         return START_STICKY
