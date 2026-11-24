@@ -54,7 +54,9 @@ private const val NETWORK_POLL_INTERVAL = 60_000L
 // essentially at the same moment, on different threads. Without this gate it's a coin flip
 // whether the rule's explicit disconnect or the tunnel's own automatic reconnect "wins". The
 // rule is supposed to win outright, so it marks a short window here; Controller.kill() checks
-// it before ever scheduling a reconnect attempt.
+// it before ever scheduling a reconnect attempt. Also used by SstpVpnService whenever the
+// tunnel is stopped for ANY explicit reason (manual toggle included), so a stray automatic
+// reconnect can never race a deliberate disconnect.
 internal object ReconnectGate {
     @Volatile
     private var suppressedUntil = 0L
@@ -319,15 +321,20 @@ internal class AutoConnectService : Service() {
             else -> null
         }
 
-        val isSameNetwork = activeNetwork == network
         val oldTransport = activeTransport
 
+        // the Network object's identity is kept up to date for the other checks below (which
+        // network a delayed callback is still "about"), but it must NEVER by itself count as a
+        // change: Android frequently hands out a brand new Network object for what is logically
+        // the very same Wi-Fi connection (DHCP lease renewal, periodic re-validation, etc.),
+        // more often on some devices than others. Gating purely on the TRANSPORT instead of
+        // object identity is what stops that normal churn from being misread as "switched to
+        // Wi-Fi" over and over while the phone never actually left the one network - which was
+        // silently re-triggering connectNow()/disconnectNow() at random.
         activeNetwork = network
         activeTransport = newTransport
 
-        // just a capability refresh on the network already in use (signal strength, etc.), not
-        // an actual switch - nothing to do
-        if (isSameNetwork && oldTransport == newTransport) return
+        if (oldTransport == newTransport) return // nothing actually changed
 
         if (isSuppressed() || isMasterOff()) return
 
